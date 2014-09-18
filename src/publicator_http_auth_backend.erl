@@ -11,7 +11,7 @@
 %% API
 -export([init_state/1, authenticate/4]).
 
--include("../include/server.hrl").
+-include("../include/publicator_core.hrl").
 
 -record(state, {url::list()|binary()}).
 

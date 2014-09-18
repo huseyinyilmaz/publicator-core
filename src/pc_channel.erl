@@ -31,7 +31,7 @@
                 cache :: queue:queue(binary()),
                 timeout :: number()|infinity}).
 
--include("../include/server.hrl").
+-include("../include/publicator_core.hrl").
 
 %%%===================================================================
 %%% API

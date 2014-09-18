@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 -module(pc_auth_backend).
 
--include("../include/server.hrl").
+-include("../include/publicator_core.hrl").
 
 -export([get_authentication_backend/0]).
 

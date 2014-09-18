@@ -11,7 +11,7 @@
 -module(pc_persistence_backend).
 
 -behaviour(gen_server).
--include("../include/server.hrl").
+-include("../include/publicator_core.hrl").
 
 %% API
 -export([start_link/2]).

@@ -3,7 +3,8 @@
 %% API
 -export([init_state/1]).
 -export([has_permission/5]).
--include("../include/server.hrl").
+
+-include("../include/publicator_core.hrl").
 
 
 -record(filter, {consumer_code::binary()|all,

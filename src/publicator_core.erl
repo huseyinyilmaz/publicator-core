@@ -20,7 +20,8 @@
 
 
 -include_lib("stdlib/include/qlc.hrl").
--include("../include/server.hrl").
+-include("../include/publicator_core.hrl").
+
 %%%===================================================================
 %%% API
 %%%===================================================================

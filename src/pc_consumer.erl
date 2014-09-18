@@ -11,7 +11,7 @@
 -behaviour(gen_server).
 -include_lib("eunit/include/eunit.hrl").
 
--include("../include/server.hrl").
+-include("../include/publicator_core.hrl").
 
 %% API
 -export([start_link/3, get/1, get_code/1,
