@@ -43,12 +43,12 @@ start(_StartType, _StartArgs) ->
 	{ok, Pid} ->
             %% lager:debug("Get Values from environment variables"),
             
-            %% {Module, Args} = s_utils:get_env(server,
+            %% {Module, Args} = pc_utils:get_env(server,
             %%                                  auth_backend,
             %%                                  ?DEFAULT_AUTH_BACKEND),
             
             %% lager:debug("Module=~p, Args=~p", [Module, Args]),
-            %% server_sup:start_permanent_child(s_auth_backend, [Module, Args]),
+            %% server_sup:start_permanent_child(pc_auth_backend, [Module, Args]),
 	    {ok, Pid};
 	Error ->
 	    Error

@@ -7,7 +7,7 @@
 %%% Created : 18 Jan 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------
 -module(publicator_static_auth_backend).
--behivour(s_auth_backend).
+-behivour(pc_auth_backend).
 %% API
 -export([init_state/1, authenticate/4]).
 
@@ -71,7 +71,7 @@ can_authenticate(#auth_filter{consumer_code=Filter_consumer_code,
                  Extra_data)->
 
     lists:all(fun({Value,Filter_value})->
-                      s_backend_utils:is_equal_or_all(Value,Filter_value)end,
+                      pc_backend_utils:is_equal_or_all(Value,Filter_value)end,
               [{Consumer_code,Filter_consumer_code},
                {Auth_info, Filter_auth_info}])
-        and s_backend_utils:is_extra_data_passes(Extra_data, Filter_extra_data).
+        and pc_backend_utils:is_extra_data_passes(Extra_data, Filter_extra_data).

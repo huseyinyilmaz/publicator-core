@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 17 Jan 2014 by Huseyin Yilmaz <huseyin@ytu-huseyin-yilmaz.local>
 %%%-------------------------------------------------------------------
--module(s_console).
+-module(pc_console).
 
 %% API
 -export([connect/1]).

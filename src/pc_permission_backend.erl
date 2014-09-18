@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 18 Jan 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------
--module(s_permission_backend).
+-module(pc_permission_backend).
 
 -include("../include/server.hrl").
 

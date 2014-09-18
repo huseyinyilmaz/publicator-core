@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 06 Jul 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
 %%%-------------------------------------------------------------------
--module(s_utils).
+-module(pc_utils).
 
 %% API
 -export([generate_code/0, get_env/3, set_env/3, ensure_started/1]).

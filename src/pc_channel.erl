@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 11 Oct 2013 by Huseyin Yilmaz <huseyin@Huseyins-MacBook-Air.local>
 %%%-------------------------------------------------------------------
--module(s_channel).
+-module(pc_channel).
 
 -behaviour(gen_server).
 
@@ -80,7 +80,7 @@ remove_consumer(Channel_pid, Consumer_code) ->
 %% if a channel with same name is already registered stop this server 
 init([Code, Cache_size, Timeout]) ->
     Self = self(),
-    case s_global:get_or_register_channel(Code) of
+    case pc_global:get_or_register_channel(Code) of
 	Self ->
             {ok, #state{code=Code,
 			consumer_table=ets:new(consumer_table,[set, public]),
@@ -125,7 +125,7 @@ handle_call({add_consumer, Consumer_pid, Consumer_code, Handler_type}, _From,
 			%% Do not sent message to newly subscribed consumer
 			case C_code of
 			    Consumer_code -> ok;
-			    _ ->s_consumer:push_add_subscribtion(C_pid,
+			    _ ->pc_consumer:push_add_subscribtion(C_pid,
 								 Channel_code,
 								 Consumer_code),
 				Acc
@@ -148,7 +148,7 @@ handle_call({remove_consumer, Consumer_code}, _From,
     Handler_list = ets:match(Consumer_table, {'$1', {'$2', all}}),
 
     lists:foldl(fun([_C_code, C_pid], _Acc) ->
-                        s_consumer:push_remove_subscribtion(C_pid,
+                        pc_consumer:push_remove_subscribtion(C_pid,
                                                             Channel_code,
                                                             Consumer_code)
 		end, ok, Handler_list),
@@ -193,7 +193,7 @@ handle_cast({publish, Message},
                    timeout=Timeout}=State)->
     %% todo run this on another temprary process
     ets:foldl(fun({_Consumer_Code, {Consumer_pid, _Handler_type}}, Acc) ->
-		      s_consumer:push_message(Consumer_pid, Channel_code, Message),
+		      pc_consumer:push_message(Consumer_pid, Channel_code, Message),
 		      Acc
 	      end, ok, Consumer_table),
     if
@@ -214,7 +214,7 @@ handle_cast({send_cache_to_consumer_pid, Consumer_pid},
                    cache=Cache,
                    timeout=Timeout}=State) ->
     lists:foreach(fun(Message)->
-                          s_consumer:push_cached_message(Consumer_pid, Channel_code, Message)
+                          pc_consumer:push_cached_message(Consumer_pid, Channel_code, Message)
                   end, queue:to_list(Cache)),
 
     {noreply, State, Timeout};

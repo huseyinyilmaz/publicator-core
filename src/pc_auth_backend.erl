@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 18 Jan 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------
--module(s_auth_backend).
+-module(pc_auth_backend).
 
 -include("../include/server.hrl").
 

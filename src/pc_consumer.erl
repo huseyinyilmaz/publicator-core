@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 22 Jan 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
 %%%-------------------------------------------------------------------
--module(s_consumer).
+-module(pc_consumer).
 
 -behaviour(gen_server).
 -include_lib("eunit/include/eunit.hrl").
@@ -61,7 +61,7 @@ get(Code) ->
     %% check if ets table has given Pid
     %% if it doesn't or value is a dead process
     %% set value to undefined.
-    case s_global:get_consumer(Code) of
+    case pc_global:get_consumer(Code) of
 	undefined -> {error, not_found};
 	Pid when is_pid(Pid) -> {ok, Pid}
     end.
@@ -147,7 +147,7 @@ remove_message_handler(Pid,Handler_pid) ->
 %%--------------------------------------------------------------------
 init([Code, Permission_module, Permission_state]) ->
     Self = self(),
-    case s_global:get_or_register_consumer(Code) of
+    case pc_global:get_or_register_consumer(Code) of
 	Self ->
 	    {ok,
 	     #state{code=Code,
@@ -195,7 +195,7 @@ handle_call({publish, Channel_code, Message, Extra_data}, _From,
                                                   Extra_data,
                                                   Permission_state) of
                 {true,Permission_state2} ->
-                    s_channel:publish(Channel_pid, Message),
+                    pc_channel:publish(Channel_pid, Message),
                     {reply,
                      ok,
                      State2#state{permission_state=Permission_state2},
@@ -233,7 +233,7 @@ handle_call({subscribe, Channel_code, Handler_type, Extra_data}, _From,
                            Extra_data,
                            Permission_state) of
                         {true, Permission_state2} ->
-                            ok = s_channel:add_consumer(Channel_pid, self(), Code, Handler_type),
+                            ok = pc_channel:add_consumer(Channel_pid, self(), Code, Handler_type),
                             {reply,
                              Reply,
                              State2#state{channels=dict:store(Channel_code,
@@ -262,7 +262,7 @@ handle_call({unsubscribe, Channel_code}, _From,
     case dict:find(Channel_code, Channels_dict) of
 	{ok, Channel_pid} ->
 	    Channels_dict2 = dict:erase(Channel_code, Channels_dict),
-	    ok = s_channel:remove_consumer(Channel_pid, Code);
+	    ok = pc_channel:remove_consumer(Channel_pid, Code);
 	error ->
 	    Channels_dict2 = Channels_dict
     end,
@@ -300,7 +300,7 @@ handle_call({get_consumers,
              Extra_data}, _From, State)->
     case get_cached_channel(Channel_code, State, Extra_data) of
         {{ok, Channel_pid}, State2} ->
-            {ok, Consumer_list} = s_channel:get_consumers(Channel_pid),
+            {ok, Consumer_list} = pc_channel:get_consumers(Channel_pid),
             {reply, {ok, Consumer_list}, State2, ?TIMEOUT};
         {{error, permission_denied}, State2} ->
             {reply, {error, permission_denied}, State2, ?TIMEOUT}
@@ -417,7 +417,7 @@ handle_info(Info, #state{code=Code}=State) ->
 terminate(Reason, #state{code=Code,
                          channels=Channel_dict}=_State) ->
     dict:fold(fun(_Channel_code, Pid, ok)->
-                      s_channel:remove_consumer(Pid, Code),
+                      pc_channel:remove_consumer(Pid, Code),
                       ok end, ok, Channel_dict),
 
     lager:debug("=============================================================="),
@@ -475,7 +475,7 @@ get_or_create_channel(Channel_code,
                              permission_module=Permission_module,
                              permission_state=Permission_state}=State,
                      Extra_data)->
-    case s_global:get_channel(Channel_code) of
+    case pc_global:get_channel(Channel_code) of
         undefined ->
             case Permission_module:has_permission(can_create_channel,
                                                   Code,
@@ -483,7 +483,7 @@ get_or_create_channel(Channel_code,
                                                   Extra_data,
                                                   Permission_state) of
                 {true, Permission_state2} ->
-                    Result = s_channel_sup:start_child(Channel_code),
+                    Result = pc_channel_sup:start_child(Channel_code),
                     State2 = State#state{permission_state=Permission_state2};
                 {false, Permission_state2} ->
                     Result = {error, permission_denied},

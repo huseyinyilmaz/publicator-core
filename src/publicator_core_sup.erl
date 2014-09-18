@@ -35,7 +35,7 @@ start_permanent_child(Mod, Args) when is_atom(Mod),
                             permanent,
                             Shutdown,
                             worker,
-                            [s_auth_backend]}),
+                            [pc_auth_backend]}),
     lager:debug("Val=~p~n", [_Val]),
     _Val
     .
@@ -78,11 +78,11 @@ init([]) ->
     Shutdown = infinity,
     Type = supervisor,
 
-    Channel_sup = {s_channel_sup, {s_channel_sup, start_link, []},
-		    Restart, Shutdown, Type, [c_channel_sup]},
+    Channel_sup = {pc_channel_sup, {pc_channel_sup, start_link, []},
+		    Restart, Shutdown, Type, [pc_channel_sup]},
 
-    Consumer_sup = {s_consumer_sup, {s_consumer_sup, start_link, []},
-		Restart, Shutdown, Type, [s_consumer_sup]},
+    Consumer_sup = {pc_consumer_sup, {pc_consumer_sup, start_link, []},
+		Restart, Shutdown, Type, [pc_consumer_sup]},
     lager:info("End of server_sup init function"),
     {ok, {SupFlags, [Consumer_sup, Channel_sup]}}.
 

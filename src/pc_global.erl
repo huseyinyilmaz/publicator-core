@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  6 Feb 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
 %%%-------------------------------------------------------------------
--module(s_global).
+-module(pc_global).
 
 %% API
 -export([get_channel/1, set_channel/2]).
@@ -154,19 +154,19 @@ get_or_register_object(Key)->
 %%%===================================================================
 %% table_specs() ->
 %%     [
-%%      [s_channels,
+%%      [pc_channels,
 %%       [{type, bag},
 %%        {ram_copies, [node()| nodes()]},
 %%        {record, code_to_pid},
 %%        {attributes, record_info(fields, code_to_pid)}
 %%       ]],
-%%      [s_consumers,
+%%      [pc_consumers,
 %%       [{type, bag},
 %%        {ram_copies, [node()| nodes()]},
 %%        {record, code_to_pid},
 %%        {attributes, record_info(fields, code_to_pid)}
 %%       ]],
-%%      [s_counter,
+%%      [pc_counter,
 %%       [{type, bag},
 %%        {ram_copies, [node()| nodes()]},
 %%        {record, counter},

@@ -8,7 +8,7 @@
 %%%-------------------------------------------------------------------
 
 
--module(s_persistence_backend).
+-module(pc_persistence_backend).
 
 -behaviour(gen_server).
 -include("../include/server.hrl").
@@ -92,7 +92,7 @@ handle_call({permission, Consumer_code, Room_code, Extra_data}, _From,
     {reply, Reply};
 
 handle_call(Request, _From, State) ->
-    lager:warning("Illegal call request to s_auth_backend Request=~p, State=~p~n",
+    lager:warning("Illegal call request to pc_auth_backend Request=~p, State=~p~n",
                   [Request, State]),
     Reply = ok,
     {reply, Reply, State}.

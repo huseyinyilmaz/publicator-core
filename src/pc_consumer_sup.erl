@@ -4,14 +4,14 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 07 Jun 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
+%%% Created : 06 Jun 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
 %%%-------------------------------------------------------------------
--module(s_channel_sup).
+-module(pc_consumer_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_child/1]).
+-export([start_link/0, start_child/2]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -24,18 +24,31 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts a new user
+%% Starts a new consumer
 %% @end
 %%--------------------------------------------------------------------
-start_child(Channel_code) ->
-    {Cache_size, Timeout} = s_utils:get_channel_config(Channel_code),
-    Args_to_append = [Channel_code, Cache_size, Timeout],
-    lager:info("Starting a channel with code ~p , cache size ~p and timeout ~p~n",
-               [Channel_code, Cache_size, Timeout]),
-    case supervisor:start_child(?SERVER, Args_to_append) of
-        {ok, Pid} -> {ok, Pid};
-        {error ,{already_exists, Pid}} -> {ok, Pid}
+-spec start_child(Auth_info::binary(),
+                  Extra_data::term()) -> {ok, Code::binary(), Pid::pid()}
+                                             | {error, permission_denied}.
+start_child(Auth_info, Extra_data) ->
+    {Auth_backend, Auth_state} = pc_auth_backend:get_authentication_backend(),
+    Code = pc_utils:generate_code(),
+    case Auth_backend:authenticate(Code, Auth_info, Extra_data, Auth_state) of
+        false ->
+            lager:info("Permission denied for code=~p", [Code]),
+            {error, permission_denied};
+        true ->
+            lager:info("Starting a new consumer with code ~p, Auth_info ~p and Auth_state ~p~n",
+                       [Code, Auth_info, Auth_state]),
+            {Permission_module, Permission_state} =
+                pc_permission_backend:get_permission_backend(),
+            Args_to_append = [Code, Permission_module, Permission_state],
+            case supervisor:start_child(?SERVER, Args_to_append) of
+                {ok, Pid} -> {ok, Code, Pid};
+                {error, {already_exists, _Pid}} -> start_child(Auth_info, Extra_data)
+            end
     end.
+	     
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -73,10 +86,10 @@ init([]) ->
     Shutdown = 2000,
     Type = worker,
 
-    User = {s_channel, {s_channel, start_link, []},
-	    Restart, Shutdown, Type, [s_channel]},
+    Consumer = {consumer, {pc_consumer, start_link, []},
+	    Restart, Shutdown, Type, [pc_consumer]},
 
-    {ok, {SupFlags, [User]}}.
+    {ok, {SupFlags, [Consumer]}}.
 
 %%%===================================================================
 %%% Internal functions

@@ -7,7 +7,7 @@
 %%% Created : 18 Jan 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------
 -module(publicator_http_auth_backend).
--behivour(s_auth_backend).
+-behivour(pc_auth_backend).
 %% API
 -export([init_state/1, authenticate/4]).
 

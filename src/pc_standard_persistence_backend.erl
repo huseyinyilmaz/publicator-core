@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  6 Feb 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
 %%%-------------------------------------------------------------------
--module(s_standard_persistence_backend).
+-module(pc_standard_persistence_backend).
 
 %% API
 -export([init/0, init/1]).

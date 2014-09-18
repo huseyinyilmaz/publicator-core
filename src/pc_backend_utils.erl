@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  1 Feb 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------
--module(s_backend_utils).
+-module(pc_backend_utils).
 
 %% API
 -export([is_extra_data_passes/2,

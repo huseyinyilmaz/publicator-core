@@ -32,9 +32,9 @@
 %%--------------------------------------------------------------------
 -spec start() -> ok.
 start() ->
-    ok = s_utils:ensure_started(lager),
-    ok = s_utils:ensure_started(ibrowse),
-    ok = s_utils:ensure_started(publicator_core).
+    ok = pc_utils:ensure_started(lager),
+    ok = pc_utils:ensure_started(ibrowse),
+    ok = pc_utils:ensure_started(publicator_core).
 
 
 %%--------------------------------------------------------------------
@@ -59,9 +59,9 @@ get_channels() ->
 %%--------------------------------------------------------------------
 -spec get_messages(binary()) -> {ok, [tuple()]} | {error, consumer_not_found}.
 get_messages(Consumer_code) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-	    s_consumer:get_messages(Consumer_pid);
+	    pc_consumer:get_messages(Consumer_pid);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
@@ -69,10 +69,10 @@ get_messages(Consumer_code) ->
                                                            | {error, consumer_not_found}
                                                            | {error, permission_denied}.
 publish(Consumer_code, Channel_code, Message, Extra_data)->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
             %% returns ok or permission denied
-	    s_consumer:publish(Consumer_pid, Channel_code, Message, Extra_data);
+	    pc_consumer:publish(Consumer_pid, Channel_code, Message, Extra_data);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
@@ -84,9 +84,9 @@ subscribe(Consumer_code, Channel_code, Handler_type, Extra_data) ->
     case is_channel_code_valid(Channel_code) of
 	false -> {error, invalid_channel_code};
 	true ->
-	    case s_consumer:get(Consumer_code) of
+	    case pc_consumer:get(Consumer_code) of
                 {ok, Consumer_pid} ->
-                    s_consumer:subscribe(Consumer_pid,
+                    pc_consumer:subscribe(Consumer_pid,
                                          Channel_code,
                                          Handler_type,
                                          Extra_data);
@@ -96,34 +96,34 @@ subscribe(Consumer_code, Channel_code, Handler_type, Extra_data) ->
 
 -spec unsubscribe(binary(), binary()) -> ok | {error, consumer_not_found}.
 unsubscribe(Consumer_code, Channel_code) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-	    ok = s_consumer:unsubscribe(Consumer_pid, Channel_code);
+	    ok = pc_consumer:unsubscribe(Consumer_pid, Channel_code);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
 -spec get_subscribtions(binary()) -> {ok, dict:dict(binary(), pid())} |
                                      {error, consumer_not_found}.
 get_subscribtions(Consumer_code) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-	    s_consumer:get_subscribtions(Consumer_pid);
+	    pc_consumer:get_subscribtions(Consumer_pid);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
 -spec add_message_handler(binary(), pid()) -> ok.
 add_message_handler(Consumer_code, Handler_pid) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-	    s_consumer:add_message_handler(Consumer_pid, Handler_pid);
+	    pc_consumer:add_message_handler(Consumer_pid, Handler_pid);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
 -spec remove_message_handler(binary(), pid()) -> ok.
 remove_message_handler(Consumer_code, Handler_pid) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-	    s_consumer:remove_message_handler(Consumer_pid, Handler_pid);
+	    pc_consumer:remove_message_handler(Consumer_pid, Handler_pid);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
@@ -132,20 +132,20 @@ remove_message_handler(Consumer_code, Handler_pid) ->
                       Extra_data::term()) -> {ok, Code::binary(), Pid::pid()}
                                                  | {error, permission_denied}.
 create_consumer(Auth_info, Extra_data) ->
-    s_consumer_sup:start_child(Auth_info, Extra_data).
+    pc_consumer_sup:start_child(Auth_info, Extra_data).
 
 -spec stop_consumer(binary()) -> ok|{error, consumer_not_found}.
 stop_consumer(Consumer_code) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-            s_consumer:stop(Consumer_pid);
+            pc_consumer:stop(Consumer_pid);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 
 
 -spec get_consumer(binary()) -> {ok, pid()} | {error, not_found}.
 get_consumer(Consumer_code) ->
-    s_consumer:get(Consumer_code).
+    pc_consumer:get(Consumer_code).
 
 -spec get_consumers(binary(), binary(), list()) ->
                            {ok, [pid()]}
@@ -153,9 +153,9 @@ get_consumer(Consumer_code) ->
                                | {error, permission_denied}
                                | {error, invalid_channel_code}.
 get_consumers(Consumer_code, Channel_code, Extra_data) ->
-    case s_consumer:get(Consumer_code) of
+    case pc_consumer:get(Consumer_code) of
 	{ok, Consumer_pid} ->
-            s_consumer:get_consumers(Consumer_pid, Channel_code, Extra_data);
+            pc_consumer:get_consumers(Consumer_pid, Channel_code, Extra_data);
 	{error, not_found} -> {error, consumer_not_found}
     end.
 

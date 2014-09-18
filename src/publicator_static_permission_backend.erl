@@ -1,5 +1,5 @@
 -module(publicator_static_permission_backend).
--behivour(s_permission_backend).
+-behivour(pc_permission_backend).
 %% API
 -export([init_state/1]).
 -export([has_permission/5]).
@@ -65,10 +65,10 @@ can_pass_filter(#filter{
                   }, Permission, Consumer_code, Channel_code, Extra_data)->
 
     case lists:all(fun({Value,Filter_value})->
-                           s_backend_utils:is_equal_or_all(Value,Filter_value)end,
+                           pc_backend_utils:is_equal_or_all(Value,Filter_value)end,
                    [{Consumer_code,Filter_consumer_code},
                     {Channel_code, Filter_channel_code}])
-        and s_backend_utils:is_extra_data_passes(Extra_data, Filter_extra_data) of
+        and pc_backend_utils:is_extra_data_passes(Extra_data, Filter_extra_data) of
 
         true->
             case Permission of
