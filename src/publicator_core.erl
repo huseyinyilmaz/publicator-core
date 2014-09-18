@@ -5,7 +5,7 @@
 %%% @end
 %%% Created :  6 Jul 2013 by Huseyin Yilmaz <huseyin@Huseyins-MacBook-Air.local>
 
--module(server).
+-module(publicator_core).
 
 
 %% API
@@ -34,7 +34,7 @@
 start() ->
     ok = s_utils:ensure_started(lager),
     ok = s_utils:ensure_started(ibrowse),
-    ok = s_utils:ensure_started(server).
+    ok = s_utils:ensure_started(publicator_core).
 
 
 %%--------------------------------------------------------------------
@@ -45,7 +45,7 @@ start() ->
 %%--------------------------------------------------------------------
 -spec stop() -> ok.
 stop() ->
-    ok = application:stop(server).
+    ok = application:stop(publicator_core).
 
 
 

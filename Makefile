@@ -52,17 +52,14 @@ docs:
 
 # start for development
 start: compile
-	erl -pa lib/*/ebin deps/*/ebin devutils/*/ebin \
-	    -i  lib/*/include deps/*/include devutils/*/include \
-	    -config rel/files/sys.config \
-	    -sync log all \
+	erl -pa ebin deps/*/ebin \
+	    -i  include deps/*/include \
 	    -lager handlers '[{lager_console_backend, debug}]' \
 	    -mnesia dir '"$(MNESIA_DIR)"' \
 	    -name $(NODE_NAME) \
-	    -eval "sync:go()." \
 	    -s lager \
-	    -s server \
-	    -s http\
+	    -s publicator_core
+
 
 
 blackbox:

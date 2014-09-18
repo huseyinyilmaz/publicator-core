@@ -7,7 +7,7 @@
 %%% @end
 %%% Created :  6 Jul 2013 by Huseyin Yilmaz <huseyin@Huseyins-MacBook-Air.local>
 %%%-------------------------------------------------------------------
--module(server_app).
+-module(publicator_core_app).
 
 -behaviour(application).
 
@@ -36,7 +36,10 @@
 %%--------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
     %% Start main supervisor
-    case server_sup:start_link() of
+    lager:debug("#######################"),
+
+    case publicator_core_sup:start_link() of
+
 	{ok, Pid} ->
             %% lager:debug("Get Values from environment variables"),
             

@@ -1,4 +1,4 @@
-{application, server,
+{application, publicator_core,
  [
   {description, "pub-sub server application."},
   {vsn, "1"},
@@ -8,6 +8,6 @@
                   stdlib,
                   lager,
                   ibrowse]},
-  {mod, { server_app, []}},
+  {mod, { publicator_core_app, []}},
   {env, []}
  ]}.

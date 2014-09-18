@@ -6,7 +6,7 @@
 %%% @end
 %%% Created :  6 Jul 2013 by Huseyin Yilmaz <huseyin@Huseyins-MacBook-Air.local>
 %%%-------------------------------------------------------------------
--module(server_sup).
+-module(publicator_core_sup).
 
 -behaviour(supervisor).
 
