@@ -5,6 +5,8 @@ NODE_NAME = publicator@127.0.0.1
 
 APPS =   kernel stdlib crypto webtool mnesia eunit tools os_mon runtime_tools xmerl inets
 
+.PHONY : all get-deps configure compile clean test eunit ct build-erlang-plt build-plt dialyze docs start blackbox
+
 # compile
 all: compile
 
