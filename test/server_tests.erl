@@ -13,7 +13,7 @@
 -define(MESSAGE2, <<"message2">>).
 -define(AUTH_INFO, <<"test_auth_code">>).
 -define(EXTRA_DATA, []).
--define(DELAY, 100).
+-define(DELAY, 500).
 
 -define(PERMISSION_CONFIG,
         {publicator_static_permission_backend,
