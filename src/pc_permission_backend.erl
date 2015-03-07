@@ -35,6 +35,6 @@
 %%%===================================================================
 -spec get_permission_backend()->{Module::atom(), Configuration::term()}.
 get_permission_backend() ->
-    {ok, {Module, Args}} = application:get_env(server, permission_backend),
+    {ok, {Module, Args}} = application:get_env(publicator_core, permission_backend),
     State = Module:init_state(Args),
     {Module, State}.
