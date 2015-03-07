@@ -35,8 +35,8 @@ setup_server_open_all_permissions() ->
                      [[{consumer_code, all},
                        {auth_info, all},
                        {extra_data, []}]]},
-    pc_utils:set_env(server, auth_backend, Configuration),
-    pc_utils:set_env(server, permission_backend, ?PERMISSION_CONFIG),
+    pc_utils:set_env(publicator_core, auth_backend, Configuration),
+    pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
     setup_server().
 
 setup_server_close_all_permissions() ->
@@ -44,8 +44,8 @@ setup_server_close_all_permissions() ->
                      [[{consumer_code, <<"closed">>},
                        {auth_info, <<"closed">>},
                        {extra_data}, [{<<"some_data">>, <<"some_value">>}]]]},
-    pc_utils:set_env(server, auth_backend, Configuration),
-    pc_utils:set_env(server, permission_backend, ?PERMISSION_CONFIG),
+    pc_utils:set_env(publicator_core, auth_backend, Configuration),
+    pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
     setup_server().
 
 cleanup_server(_) ->

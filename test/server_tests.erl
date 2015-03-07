@@ -32,8 +32,8 @@ setup_server()->
                      [[{consumer_code, all},
                        {auth_info, all},
                        {extra_data, []}]]},
-    pc_utils:set_env(server, auth_backend, Configuration),
-    pc_utils:set_env(server, permission_backend, ?PERMISSION_CONFIG),
+    pc_utils:set_env(publicator_core, auth_backend, Configuration),
+    pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
     ok = publicator_core:start().
 
 cleanup_server(_)->
