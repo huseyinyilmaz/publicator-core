@@ -18,7 +18,6 @@ publicator.tar.gz
 deps
 /rebar
 /relx
-/test
 *.o
 *.beam
 *.plt
