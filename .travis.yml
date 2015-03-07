@@ -1,5 +1,9 @@
 language: erlang
-script: "make configure test"
+
+sudo: false
+
+script: "rm -rf .git && make configure && make test"
+
 otp_release:
    - 17.0
    - R16B03-1
