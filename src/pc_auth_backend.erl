@@ -36,8 +36,6 @@
 %%%===================================================================
 -spec get_authentication_backend()->{Module::atom(), Configuration::term()}.
 get_authentication_backend() ->
-    lager:debug("XXXXXX VALUE =  ~p", [application:get_env(publicator_core, auth_backend)]),
-
     {ok, {Module, Args}} = application:get_env(publicator_core, auth_backend),
     State = Module:init_state(Args),
     {Module, State}.
