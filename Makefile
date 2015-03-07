@@ -10,10 +10,8 @@ APPS =   kernel stdlib crypto webtool mnesia eunit tools os_mon runtime_tools xm
 # compile
 all: compile
 
-
-REBAR_URL=https://github.com/rebar/rebar/wiki/rebar
 get-rebar:
-	curl -Lo rebar $(REBAR_URL) || wget $(REBAR_URL)
+	wget https://github.com/rebar/rebar/wiki/rebar
 	chmod a+x rebar
 
 # get dependencies
