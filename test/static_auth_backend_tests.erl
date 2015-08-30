@@ -11,8 +11,7 @@
 -define(CHANNEL2, <<"channelcode2">>).
 -define(MESSAGE1, <<"message1">>).
 -define(MESSAGE2, <<"message2">>).
--define(AUTH_INFO, <<"test_auth_code">>).
--define(EXTRA_DATA, []).
+-define(META, #{}).
 
 -define(PERMISSION_CONFIG,
         {publicator_static_permission_backend,
@@ -61,14 +60,17 @@ server_opened_auth_test_() ->
      {"Test all permissions enabled.",
       ?_test(
          begin
-	     {ok, Consumer_code1, _} = publicator_core:create_consumer(?AUTH_INFO, ?EXTRA_DATA),
-             ?assertEqual(ok, publicator_core:subscribe(Consumer_code1, ?CHANNEL1, message_only,[])),
-             ok = publicator_core:publish(Consumer_code1, ?CHANNEL1, ?MESSAGE1, ?EXTRA_DATA),
+	     {ok, Producer_code1, _} = publicator_core:create_producer(?META),
+             ?assertEqual(ok, publicator_core:subscribe(Producer_code1, ?CHANNEL1, ?META)),
+             Msg = #message{type=message,
+                            data=?MESSAGE1,
+                            channel_code=?CHANNEL1,
+                            producer_code=Producer_code1},
+
+             ok = publicator_core:publish(Msg),
              timer:sleep(?DELAY),
-	     {ok, Messages} = publicator_core:get_messages(Consumer_code1),
-	     ?assertEqual([#message{type=message,
-                                    data=?MESSAGE1,
-                                    channel_code=?CHANNEL1}], Messages)
+	     {ok, Messages} = publicator_core:get_messages(Producer_code1),
+	     ?assertEqual([Msg], Messages)
          end)
      }}.
 
@@ -79,6 +81,6 @@ server_closed_auth_test_() ->
      {"Test all permissions disabled.",
       ?_test(
          begin
-	     {error,permission_denied} = publicator_core:create_consumer(?AUTH_INFO, ?EXTRA_DATA)
+	     {error,permission_denied} = publicator_core:create_producer(?META)
          end)
      }}.

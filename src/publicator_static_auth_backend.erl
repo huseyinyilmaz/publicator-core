@@ -9,13 +9,12 @@
 -module(publicator_static_auth_backend).
 -behivour(pc_auth_backend).
 %% API
--export([init_state/1, authenticate/4]).
+-export([init_state/1, authenticate/3]).
 
 -include("../include/publicator_core.hrl").
 
 -record(auth_filter, {consumer_code::binary()|all,
-                      auth_info::binary()|all,
-                      extra_data::list()|all}).
+                      meta::list()|all}).
 
 -record(state, {filter_list::list()}).
 
@@ -24,11 +23,13 @@
 %%%===================================================================
 -callback init_state(Auth_args::term()) -> New_state::term().
 init_state(Auth_args) ->
+    lager:warning("AUTH_args=~p", [Auth_args]),
     Auth_list = [#auth_filter{consumer_code=proplists:get_value(consumer_code, Auth_arg, all),
-                              auth_info=proplists:get_value(auth_info, Auth_arg, all),
-                              extra_data=proplists:get_value(extra_data, Auth_arg, [])
+                              meta=proplists:get_value(meta, Auth_arg, [])
                              }
                  || Auth_arg <- Auth_args],
+    lager:warning("AUTH_list=~p", [Auth_list]),
+
     #state{filter_list=Auth_list}.
 
 
@@ -48,30 +49,29 @@ init_state(Auth_args) ->
 
 
 -spec authenticate(Consumer_code::binary(),
-                   Auth_info::binary(),
-                   Extra_data::term(),
+                   Meta::message_meta(),
                    State::term()) -> boolean().
-authenticate(Consumer_code, Auth_info, Extra_data, #state{filter_list=Filter_list}=_State) ->
+authenticate(Consumer_code, Meta, #state{filter_list=Filter_list}=_State) ->
     lists:any(fun(Filter)->
                       can_authenticate(Filter,
                                        Consumer_code,
-                                       Auth_info,
-                                       Extra_data)
+                                       Meta)
               end, Filter_list).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--spec can_authenticate(tuple(), binary(), term(), list()) -> boolean().
+
+%% Checks meta data passes for given consumer code.
+%% TODO. we need to do actual check here.
+-spec can_authenticate(tuple(), binary(), message_meta()) -> boolean().
 can_authenticate(#auth_filter{consumer_code=Filter_consumer_code,
-                              auth_info=Filter_auth_info,
-                              extra_data=Filter_extra_data},
+                              meta=_Filter_meta},
                  Consumer_code,
-                 Auth_info,
-                 Extra_data)->
+                 _Meta)->
 
     lists:all(fun({Value,Filter_value})->
                       pc_backend_utils:is_equal_or_all(Value,Filter_value)end,
-              [{Consumer_code,Filter_consumer_code},
-               {Auth_info, Filter_auth_info}])
-        and pc_backend_utils:is_extra_data_passes(Extra_data, Filter_extra_data).
+              [{Consumer_code,Filter_consumer_code}]).
+               %% {Meta, Filter_meta}]).
+        %% and pc_backend_utils:is_extra_data_passes(Extra_data, Filter_extra_data).

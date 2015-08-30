@@ -81,10 +81,10 @@ init([]) ->
     Channel_sup = {pc_channel_sup, {pc_channel_sup, start_link, []},
 		    Restart, Shutdown, Type, [pc_channel_sup]},
 
-    Consumer_sup = {pc_consumer_sup, {pc_consumer_sup, start_link, []},
-		Restart, Shutdown, Type, [pc_consumer_sup]},
+    Producer_sup = {pc_producer_sup, {pc_producer_sup, start_link, []},
+		Restart, Shutdown, Type, [pc_producer_sup]},
     lager:info("End of server_sup init function"),
-    {ok, {SupFlags, [Consumer_sup, Channel_sup]}}.
+    {ok, {SupFlags, [Producer_sup, Channel_sup]}}.
 
 %%%===================================================================
 %%% Internal functions

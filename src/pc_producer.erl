@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 22 Jan 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
 %%%-------------------------------------------------------------------
--module(pc_consumer).
+-module(pc_producer).
 
 -behaviour(gen_server).
 -include_lib("eunit/include/eunit.hrl").
@@ -15,16 +15,12 @@
 
 %% API
 -export([start_link/3, get/1, get_code/1,
-	 get_count/0, stop/1, push_message/3,
-	 get_messages/1, subscribe/4,
-	 publish/4, get_subscribtions/1, unsubscribe/2,
+	 get_count/0, stop/1, push_message/2,
+	 get_messages/1, subscribe/3,
+	 publish/2, get_subscribtions/1, unsubscribe/2,
 	 add_message_handler/2, remove_message_handler/2]).
 
--export([push_add_subscribtion/3]).
-
--export([push_remove_subscribtion/3]).
--export([push_cached_message/3]).
--export([get_consumers/3]).
+-export([get_producers/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -33,9 +29,9 @@
 -define(SERVER, ?MODULE). 
 -define(TIMEOUT, 1 * 60 * 1000).                % 1 minute
 
--record(state, {code :: binary(),                           % consumer code
-		channels :: dict:dict(binary(), pid()),          % consumer's channel list
-		channels_cache :: dict:dict(binary(), pid()),     % channels cache that this consumer reached
+-record(state, {code :: binary(),                           % producer code
+		channels :: dict:dict(binary(), pid()),          % producer's channel list
+		channels_cache :: dict:dict(binary(), pid()),     % channels cache that this producer reached
 		messages :: queue:queue(binary()),          % messages dict (for rest interface)
                 max_message_count :: number(),
                 current_message_count :: number(),
@@ -49,7 +45,7 @@
 %%%===================================================================
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts a new consumer server
+%% Starts a new producer server
 %% @end
 %%--------------------------------------------------------------------
 -spec start_link(binary(), atom(), term()) -> {ok, pid()} | ignore | {error, any()}.
@@ -61,19 +57,19 @@ get(Code) ->
     %% check if ets table has given Pid
     %% if it doesn't or value is a dead process
     %% set value to undefined.
-    case pc_global:get_consumer(Code) of
+    case pc_global:get_producer(Code) of
 	undefined -> {error, not_found};
 	Pid when is_pid(Pid) -> {ok, Pid}
     end.
 
--spec get_consumers(Pid::pid(),
+-spec get_producers(Pid::pid(),
                    Channel_code::pid(),
                    Extra_data::term())->
                            {ok, list()}
                                | {error, permission_denied}
                                | {error, invalid_channel_code}.
-get_consumers(Pid, Channel_code, Extra_data)->
-    gen_server:call(Pid,{get_consumers, Channel_code, Extra_data}).
+get_producers(Pid, Channel_code, Extra_data)->
+    gen_server:call(Pid,{get_producers, Channel_code, Extra_data}).
 
 -spec get_code(pid()) -> {ok, binary()}.
 get_code(Pid) ->
@@ -83,22 +79,9 @@ get_code(Pid) ->
 get_messages(Pid) ->
     gen_server:call(Pid, get_messages).
 
--spec push_message(pid(), binary(), binary())-> ok.
-push_message(Pid, Channel_code, Message) ->
-    gen_server:cast(Pid, {push_message, Channel_code, Message}).
-
--spec push_cached_message(pid(), binary(), binary())-> ok.
-push_cached_message(Pid, Channel_code, Message) ->
-    gen_server:cast(Pid, {push_cached_message, Channel_code, Message}).
-
--spec push_add_subscribtion(pid(), binary(), binary())-> ok.
-push_add_subscribtion(Pid, Channel_code, Consumer_code) ->
-    gen_server:cast(Pid, {push_add_subscribtion, Channel_code, Consumer_code}).
-
--spec push_remove_subscribtion(pid(), binary(), binary())-> ok.
-push_remove_subscribtion(Pid, Channel_code, Consumer_code) ->
-    gen_server:cast(Pid, {push_remove_subscribtion, Channel_code, Consumer_code}).
-
+-spec push_message(pid(), #message{})-> ok.
+push_message(Pid, Message) ->
+    gen_server:cast(Pid, {push, Message}).
 
 -spec stop(pid()) -> ok.
 stop(Pid) ->
@@ -106,21 +89,21 @@ stop(Pid) ->
 
 -spec get_count() -> {ok, integer()}.
 get_count() ->
-    {ok, ets:info(consumer, size)}.
+    {ok, ets:info(producer, size)}.
 
--spec subscribe(pid(), binary(), channel_handler_type(), term()) ->
+-spec subscribe(pid(), code(), message_meta()) ->
                        ok | {error, permission_denied}.
-subscribe(Pid, Channel_code, Handler_type, Extra_data)->
-    gen_server:call(Pid, {subscribe, Channel_code, Handler_type, Extra_data}).
+subscribe(Pid, Channel_code, Meta)->
+    gen_server:call(Pid, {subscribe, Channel_code, Meta}).
 
 unsubscribe(Pid, Channel_code)->
     gen_server:call(Pid, {unsubscribe, Channel_code}).
 
--spec publish(pid(), binary(), binary(), list()) -> ok
-                                                        | {error, consumer_not_found}
-                                                        | {error, permission_denied}.
-publish(Pid, Channel_code, Message, Extra_data)->
-    gen_server:call(Pid, {publish, Channel_code, Message, Extra_data}).
+-spec publish(pid(), #message{}) -> ok
+                                        | {error, producer_not_found}
+                                        | {error, permission_denied}.
+publish(Pid, Message)->
+    gen_server:call(Pid, {publish, Message}).
 
 -spec get_subscribtions(pid()) -> {ok, dict:dict(binary(), pid())}.
 get_subscribtions(Pid) ->
@@ -147,7 +130,7 @@ remove_message_handler(Pid,Handler_pid) ->
 %%--------------------------------------------------------------------
 init([Code, Permission_module, Permission_state]) ->
     Self = self(),
-    case pc_global:get_or_register_consumer(Code) of
+    case pc_global:get_or_register_producer(Code) of
 	Self ->
 	    {ok,
 	     #state{code=Code,
@@ -183,16 +166,20 @@ handle_call(get_code, _From, #state{code=Code}=State) ->
     Reply = {ok, Code},
     {reply, Reply, State, ?TIMEOUT};
 
-handle_call({publish, Channel_code, Message, Extra_data}, _From,
-            #state{code=Code,
+handle_call({publish,
+             #message{producer_code=Producer_code,
+                      channel_code=Channel_code,
+                      meta=Meta}=Message},
+             _From,
+            #state{code=Producer_code,
                    permission_module=Permission_module,
                    permission_state=Permission_state}=State) ->
-    case get_cached_channel(Channel_code, State, Extra_data) of
+    case get_cached_channel(Channel_code, State, Meta) of
         {{ok, Channel_pid}, State2} ->
             case Permission_module:has_permission(can_publish,
-                                                  Code,
+                                                  Producer_code,
                                                   Channel_code,
-                                                  Extra_data,
+                                                  Meta,
                                                   Permission_state) of
                 {true,Permission_state2} ->
                     pc_channel:publish(Channel_pid, Message),
@@ -210,12 +197,12 @@ handle_call({publish, Channel_code, Message, Extra_data}, _From,
             {reply, {error, permission_denied}, State2, ?TIMEOUT}
     end;
 
-handle_call({subscribe, Channel_code, Handler_type, Extra_data}, _From,
+handle_call({subscribe, Channel_code, Meta}, _From,
 	    #state{code=Code,
 		   channels=Channels_dict,
                    permission_module=Permission_module,
                    permission_state=Permission_state}=State) ->
-    case get_cached_channel(Channel_code, State, Extra_data) of
+    case get_cached_channel(Channel_code, State, Meta) of
         {{ok, Channel_pid}, State2} ->
             Reply = ok,
             %% if value is already exist in the dictionary log a warning
@@ -224,16 +211,17 @@ handle_call({subscribe, Channel_code, Handler_type, Extra_data}, _From,
                     {reply, Reply, State, ?TIMEOUT};
                 false ->
                     case Permission_module:has_permission(
-                           case Handler_type of
-                               all -> can_subscribe_all_events;
-                               message_only -> can_subscribe_messages
-                           end,
+                           %% case Handler_type of
+                           %%     all -> can_subscribe_all_events;
+                           %%     message_only -> can_subscribe_messages
+                           %% end,
+                           can_subscribe_all_events,
                            Code,
                            Channel_code,
-                           Extra_data,
+                           Meta,
                            Permission_state) of
                         {true, Permission_state2} ->
-                            ok = pc_channel:add_consumer(Channel_pid, self(), Code, Handler_type),
+                            ok = pc_channel:add_producer(Channel_pid, self(), Code),
                             {reply,
                              Reply,
                              State2#state{channels=dict:store(Channel_code,
@@ -256,13 +244,12 @@ handle_call({subscribe, Channel_code, Handler_type, Extra_data}, _From,
 handle_call({unsubscribe, Channel_code}, _From,
 	    #state{channels=Channels_dict,
 		   code=Code}=State) ->
-
     Reply = ok,
     %% if value is already exist in the dictionary log a warning
     case dict:find(Channel_code, Channels_dict) of
 	{ok, Channel_pid} ->
 	    Channels_dict2 = dict:erase(Channel_code, Channels_dict),
-	    ok = pc_channel:remove_consumer(Channel_pid, Code);
+	    ok = pc_channel:remove_producer(Channel_pid, Code);
 	error ->
 	    Channels_dict2 = Channels_dict
     end,
@@ -295,12 +282,12 @@ handle_call(get_subscribtions, _From, #state{channels=Channels_dict}=State)->
     {reply,Reply, State, ?TIMEOUT};
 
 
-handle_call({get_consumers,
+handle_call({get_producers,
              Channel_code,
              Extra_data}, _From, State)->
     case get_cached_channel(Channel_code, State, Extra_data) of
         {{ok, Channel_pid}, State2} ->
-            {ok, Consumer_list} = pc_channel:get_consumers(Channel_pid),
+            {ok, Consumer_list} = pc_channel:get_producers(Channel_pid),
             {reply, {ok, Consumer_list}, State2, ?TIMEOUT};
         {{error, permission_denied}, State2} ->
             {reply, {error, permission_denied}, State2, ?TIMEOUT}
@@ -317,28 +304,13 @@ handle_call({get_consumers,
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({push_message, Channel_code, Message}, State) ->
-    handle_cast({push, message, Channel_code, Message}, State);
 
-handle_cast({push_cached_message, Channel_code, Message}, State) ->
-    handle_cast({push, cached_message, Channel_code, Message}, State);
-
-handle_cast({push_add_subscribtion, Channel_code, Consumer_code}, State) ->
-    handle_cast({push, add_subscribtion, Channel_code, Consumer_code}, State);
-
-handle_cast({push_remove_subscribtion, Channel_code, Consumer_code}, State) ->
-    handle_cast({push, remove_subscribtion, Channel_code, Consumer_code}, State);
-
-handle_cast({push, Message_type, Channel_code, Msg},
+%% If there is no handler, just put the message to cache
+handle_cast({push, Message},
 	    #state{messages=Message_queue,
                    max_message_count=Max_message_count,
                    current_message_count=Current_message_count,
                    handlers=[]}=State) ->
-    
-    Message = #message{type=Message_type,
-                       data=Msg,
-                       channel_code=Channel_code},
-
     if
         Max_message_count =< Current_message_count ->
             Message_queue1 = queue:drop(queue:in(Message,Message_queue)),
@@ -352,19 +324,15 @@ handle_cast({push, Message_type, Channel_code, Msg},
                           current_message_count=Current_message_count1},
      ?TIMEOUT};
 
-handle_cast({push, Message_type, Channel_code, Msg},
+handle_cast({push, Message},
 	    #state{handlers=Handler_list}=State) ->
     Alive_handler_list = lists:filter(fun is_process_alive/1, Handler_list),
     New_state = State#state{handlers=Alive_handler_list},
     case Alive_handler_list of
 	[] ->
 	    lager:info("All hadlers are dead, Switch to buffer mode"),
-	    handle_cast({push, Message_type, Channel_code, Msg}, New_state);
+	    handle_cast({push, Message}, New_state);
 	_ ->
-            Message = #message{type=Message_type,
-                               data=Msg,
-                               channel_code=Channel_code},
-
             lists:foreach(fun(Pid)->
 				   Pid ! Message
                           end, Handler_list),
@@ -400,7 +368,7 @@ handle_info(timeout, #state{code=Code,
 	end;
 
 handle_info(Info, #state{code=Code}=State) ->
-    lager:warning("Unhandled info message in consumer ~p (~p)", [Code, Info]),
+    lager:warning("Unhandled info message in producer ~p (~p)", [Code, Info]),
     {noreply, State, ?TIMEOUT}.
 
 %%--------------------------------------------------------------------
@@ -417,11 +385,9 @@ handle_info(Info, #state{code=Code}=State) ->
 terminate(Reason, #state{code=Code,
                          channels=Channel_dict}=_State) ->
     dict:fold(fun(_Channel_code, Pid, ok)->
-                      pc_channel:remove_consumer(Pid, Code),
+                      pc_channel:remove_producer(Pid, Code),
                       ok end, ok, Channel_dict),
-
-    lager:debug("=============================================================="),
-    lager:info("Terminate consumer ~p (~p)", [Code, Reason]),
+    lager:info("Terminate producer ~p (~p) ", [Code, Reason]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -444,7 +410,7 @@ code_change(_OldVsn, State, _Extra) ->
 get_cached_channel(Channel_code,
                    #state{channels=Channels_dict,
                           channels_cache=Channels_cache_dict}=State,
-                  Extra_data) ->
+                  Meta) ->
     case dict:find(Channel_code, Channels_dict) of
 	{ok, Channel_pid} -> Result = Channel_pid,
 			     {{ok, Result}, State};
@@ -456,7 +422,7 @@ get_cached_channel(Channel_code,
                     %% result is not in Channel_dict nor Channel_cache_dict
                     case get_or_create_channel(Channel_code,
                                                State,
-                                               Extra_data) of
+                                               Meta) of
                         {{ok, New_channel_pid}, State2} ->
                             State3 = State2#state{channels_cache=
                                                       dict:store(Channel_code,
@@ -474,13 +440,13 @@ get_or_create_channel(Channel_code,
                       #state{code=Code,
                              permission_module=Permission_module,
                              permission_state=Permission_state}=State,
-                     Extra_data)->
+                     Meta)->
     case pc_global:get_channel(Channel_code) of
         undefined ->
             case Permission_module:has_permission(can_create_channel,
                                                   Code,
                                                   Channel_code,
-                                                  Extra_data,
+                                                  Meta,
                                                   Permission_state) of
                 {true, Permission_state2} ->
                     Result = pc_channel_sup:start_child(Channel_code),

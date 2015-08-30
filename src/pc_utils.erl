@@ -4,14 +4,16 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 06 Jul 2013 by Huseyin Yilmaz <huseyin@huseyin-work>
+%%% Created : 06 Jul 2013 by Huseyin Yilmaz <huseyin@lhuseyin-work>
 %%%-------------------------------------------------------------------
 -module(pc_utils).
 
 %% API
 -export([generate_code/0, get_env/3, set_env/3, ensure_started/1]).
 -export([get_channel_config/1]).
+-export([make_message/5]).
 
+-include("../include/publicator_core.hrl").
 
 -define(DEFAULT_CACHE_SIZE, 20).
 -define(DEFAULT_TIMEOUT, 10 * 60 * 1000).       %10 minutes
@@ -33,7 +35,7 @@ generate_code()->
     list_to_binary(
       string:to_lower(
 	integer_to_list(
-	  erlang:phash2({node(), now()}), 36))).
+	  erlang:phash2({node(), erlang:timestamp()}), 36))).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -74,6 +76,19 @@ get_channel_config(Channel_code)->
     Config_timeout = proplists:get_value(timeout, Config, ?DEFAULT_TIMEOUT),
     lager:debug("Choosen configuration for channel ~p is ~p", [Channel_code, Config]),
     {Config_cache_size, Config_timeout}.
+
+
+-spec make_message(code(), code(), message_type(), binary(), message_meta()) -> #message{}.
+make_message(Producer_code, Channel_code, Type, Data, Meta) ->
+        #message{
+           producer_code=Producer_code,
+           channel_code=Channel_code,
+           type=Type,
+           data=Data,
+           meta=Meta}.
+
+
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================

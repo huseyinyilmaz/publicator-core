@@ -61,6 +61,7 @@ docs:
 start: compile
 	erl -pa ebin deps/*/ebin \
 	    -i  include deps/*/include \
+	    -config default_sys.config \
 	    -lager handlers '[{lager_console_backend, debug}]' \
 	    -mnesia dir '"$(MNESIA_DIR)"' \
 	    -name $(NODE_NAME) \

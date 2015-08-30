@@ -10,14 +10,14 @@
 
 %% API
 -export([start/0, stop/0]).
--export([get_messages/1, publish/4,
-	 subscribe/4, unsubscribe/2,
+-export([get_messages/1, publish/1,
+	 subscribe/3, unsubscribe/2,
 	 get_subscribtions/1,
-	 create_consumer/2, get_consumer/1, get_channels/0]).
--export([stop_consumer/1]).
--export([get_consumers/3]).
+	 create_producer/1, get_producer/1, get_channels/0]).
+-export([stop_producer/1]).
+-export([get_producers/3]).
 -export([add_message_handler/2, remove_message_handler/2]).
-
+-export([make_message/4]).
 
 -include_lib("stdlib/include/qlc.hrl").
 -include("../include/publicator_core.hrl").
@@ -58,107 +58,108 @@ get_channels() ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
--spec get_messages(binary()) -> {ok, [tuple()]} | {error, consumer_not_found}.
-get_messages(Consumer_code) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-	    pc_consumer:get_messages(Consumer_pid);
-	{error, not_found} -> {error, consumer_not_found}
+-spec get_messages(binary()) -> {ok, [tuple()]} | {error, producer_not_found}.
+get_messages(Producer_code) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+	    pc_producer:get_messages(Producer_pid);
+	{error, not_found} -> {error, producer_not_found}
     end.
 
--spec publish(binary(), binary(), binary(), list()) -> ok
-                                                           | {error, consumer_not_found}
-                                                           | {error, permission_denied}.
-publish(Consumer_code, Channel_code, Message, Extra_data)->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-            %% returns ok or permission denied
-	    pc_consumer:publish(Consumer_pid, Channel_code, Message, Extra_data);
-	{error, not_found} -> {error, consumer_not_found}
-    end.
-
--spec subscribe(binary(), binary(), channel_handler_type(), term()) ->
-                       ok  | {error, invalid_channel_code}
-                           | {error, consumer_not_found}
+-spec publish(#message{}) -> ok
+                           | {error, producer_not_found}
                            | {error, permission_denied}.
-subscribe(Consumer_code, Channel_code, Handler_type, Extra_data) ->
+publish(#message{producer_code=Producer_code}=Message)->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+            %% returns ok or permission denied
+	    pc_producer:publish(Producer_pid, Message);
+	{error, not_found} -> {error, producer_not_found}
+    end.
+
+-spec subscribe(code(), code(), message_meta()) ->
+                       ok  | {error, invalid_channel_code}
+                           | {error, producer_not_found}
+                           | {error, permission_denied}.
+subscribe(Producer_code, Channel_code, Meta) ->
     case is_channel_code_valid(Channel_code) of
 	false -> {error, invalid_channel_code};
 	true ->
-	    case pc_consumer:get(Consumer_code) of
-                {ok, Consumer_pid} ->
-                    pc_consumer:subscribe(Consumer_pid,
-                                         Channel_code,
-                                         Handler_type,
-                                         Extra_data);
-		{error, not_found} -> {error, consumer_not_found}
+	    case pc_producer:get(Producer_code) of
+                {ok, Producer_pid} ->
+                    pc_producer:subscribe(Producer_pid, Channel_code, Meta);
+		{error, not_found} -> {error, producer_not_found}
 	    end
     end.
 
--spec unsubscribe(binary(), binary()) -> ok | {error, consumer_not_found}.
-unsubscribe(Consumer_code, Channel_code) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-	    ok = pc_consumer:unsubscribe(Consumer_pid, Channel_code);
-	{error, not_found} -> {error, consumer_not_found}
+-spec unsubscribe(binary(), binary()) -> ok | {error, producer_not_found}.
+unsubscribe(Producer_code, Channel_code) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+	    ok = pc_producer:unsubscribe(Producer_pid, Channel_code);
+	{error, not_found} -> {error, producer_not_found}
     end.
 
 -spec get_subscribtions(binary()) -> {ok, dict:dict(binary(), pid())} |
-                                     {error, consumer_not_found}.
-get_subscribtions(Consumer_code) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-	    pc_consumer:get_subscribtions(Consumer_pid);
-	{error, not_found} -> {error, consumer_not_found}
+                                     {error, producer_not_found}.
+get_subscribtions(Producer_code) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+	    pc_producer:get_subscribtions(Producer_pid);
+	{error, not_found} -> {error, producer_not_found}
     end.
 
 -spec add_message_handler(binary(), pid()) -> ok.
-add_message_handler(Consumer_code, Handler_pid) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-	    pc_consumer:add_message_handler(Consumer_pid, Handler_pid);
-	{error, not_found} -> {error, consumer_not_found}
+add_message_handler(Producer_code, Handler_pid) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+	    pc_producer:add_message_handler(Producer_pid, Handler_pid);
+	{error, not_found} -> {error, producer_not_found}
     end.
 
 -spec remove_message_handler(binary(), pid()) -> ok.
-remove_message_handler(Consumer_code, Handler_pid) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-	    pc_consumer:remove_message_handler(Consumer_pid, Handler_pid);
-	{error, not_found} -> {error, consumer_not_found}
+remove_message_handler(Producer_code, Handler_pid) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+	    pc_producer:remove_message_handler(Producer_pid, Handler_pid);
+	{error, not_found} -> {error, producer_not_found}
     end.
 
 
--spec create_consumer(Auth_info::binary(),
-                      Extra_data::term()) -> {ok, Code::binary(), Pid::pid()}
-                                                 | {error, permission_denied}.
-create_consumer(Auth_info, Extra_data) ->
-    pc_consumer_sup:start_child(Auth_info, Extra_data).
+-spec create_producer(message_meta()) -> {ok, Code::binary(), Pid::pid()}
+                                         | {error, permission_denied}.
+create_producer(Meta) ->
+    pc_producer_sup:start_child(Meta).
 
--spec stop_consumer(binary()) -> ok|{error, consumer_not_found}.
-stop_consumer(Consumer_code) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-            pc_consumer:stop(Consumer_pid);
-	{error, not_found} -> {error, consumer_not_found}
+-spec stop_producer(binary()) -> ok|{error, producer_not_found}.
+stop_producer(Producer_code) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+            pc_producer:stop(Producer_pid);
+	{error, not_found} -> {error, producer_not_found}
     end.
 
 
--spec get_consumer(binary()) -> {ok, pid()} | {error, not_found}.
-get_consumer(Consumer_code) ->
-    pc_consumer:get(Consumer_code).
+-spec get_producer(binary()) -> {ok, pid()} | {error, not_found}.
+get_producer(Producer_code) ->
+    pc_producer:get(Producer_code).
 
--spec get_consumers(binary(), binary(), list()) ->
+-spec get_producers(binary(), binary(), list()) ->
                            {ok, [pid()]}
-                               | {error, consumer_not_found}
+                               | {error, producer_not_found}
                                | {error, permission_denied}
                                | {error, invalid_channel_code}.
-get_consumers(Consumer_code, Channel_code, Extra_data) ->
-    case pc_consumer:get(Consumer_code) of
-	{ok, Consumer_pid} ->
-            pc_consumer:get_consumers(Consumer_pid, Channel_code, Extra_data);
-	{error, not_found} -> {error, consumer_not_found}
+get_producers(Producer_code, Channel_code, Extra_data) ->
+    case pc_producer:get(Producer_code) of
+	{ok, Producer_pid} ->
+            pc_producer:get_producers(Producer_pid, Channel_code, Extra_data);
+	{error, not_found} -> {error, producer_not_found}
     end.
+
+-spec make_message(binary(), binary(), binary(), #{}) -> #message{}.
+make_message(Producer_code, Channel_code, Data, Meta) ->
+        pc_utils:make_message(Producer_code, Channel_code, message, Data, Meta).
+    
 
 %%%===================================================================
 %%% Internal functions

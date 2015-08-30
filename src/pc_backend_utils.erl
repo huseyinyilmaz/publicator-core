@@ -42,7 +42,7 @@ is_extra_data_passes(Extra_data, [{Key, Value}| Filter_extra_data], true)->
 %%--------------------------------------------------------------------
 
 is_equal_or_all(_Value, all) -> true;
-is_equal_or_all(Value, Filter_value)-> Value ==Filter_value.
+is_equal_or_all(Value, Filter_value)-> Value == Filter_value.
 
 %%%===================================================================
 %%% Internal functions

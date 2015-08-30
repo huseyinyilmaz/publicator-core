@@ -13,9 +13,9 @@
 %% API
 -export([start_link/3]).
 -export([publish/2]).
--export([get_consumers/1]).
--export([add_consumer/4]).
--export([remove_consumer/2]).
+-export([get_producers/1]).
+-export([add_producer/3]).
+-export([remove_producer/2]).
 
 
 %% gen_server callbacks
@@ -25,7 +25,7 @@
 -define(SERVER, ?MODULE). 
 
 -record(state, {code :: binary(),
-		consumer_table :: ets:tid(),
+		producer_table :: ets:tid(),
                 cache_size :: number(),
                 current_cache_size :: number(),
                 cache :: queue:queue(binary()),
@@ -48,19 +48,21 @@ start_link(Code, Cache_size, Timeout) ->
 
 
 publish(Channel_pid, Message) ->
-    gen_server:cast(Channel_pid, {publish, Message}).
+    Response = gen_server:cast(Channel_pid, {publish, Message}),
+    Response.
 
 
-%spec get_consumers(Channel_pid::binary()) -> {ok, [pid()]}.
-get_consumers(Channel_pid) ->
-    {ok, Consumer_list} = gen_server:call(Channel_pid, get_consumers),
-    {ok, Consumer_list}.
 
-add_consumer(Channel_pid, Consumer_pid, Consumer_code, Handler_type) ->
-    gen_server:call(Channel_pid, {add_consumer, Consumer_pid, Consumer_code, Handler_type}).
+%spec get_producers(Channel_pid::binary()) -> {ok, [pid()]}.
+get_producers(Channel_pid) ->
+    {ok, Producer_list} = gen_server:call(Channel_pid, get_producers),
+    {ok, Producer_list}.
 
-remove_consumer(Channel_pid, Consumer_code) ->
-    gen_server:call(Channel_pid, {remove_consumer, Consumer_code}).
+add_producer(Channel_pid, Producer_pid, Producer_code) ->
+    gen_server:call(Channel_pid, {add_producer, Producer_pid, Producer_code}).
+
+remove_producer(Channel_pid, Producer_code) ->
+    gen_server:call(Channel_pid, {remove_producer, Producer_code}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -83,7 +85,7 @@ init([Code, Cache_size, Timeout]) ->
     case pc_global:get_or_register_channel(Code) of
 	Self ->
             {ok, #state{code=Code,
-			consumer_table=ets:new(consumer_table,[set, public]),
+			producer_table=ets:new(producer_table,[set, public]),
                         cache_size=Cache_size,
                         current_cache_size=0,
                         cache=queue:new(),
@@ -107,27 +109,30 @@ init([Code, Cache_size, Timeout]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_consumer, Consumer_pid, Consumer_code, Handler_type}, _From,
-	    #state{consumer_table=Consumer_table,
+handle_call({add_producer, Producer_pid, Producer_code}, _From,
+	    #state{producer_table=Producer_table,
 		   code=Channel_code,
                    timeout=Timeout}=State)->
-    %% Send cache to newly subscribed consumer
-    gen_server:cast(self(), {send_cache_to_consumer_pid, Consumer_pid}),
-    %% Add  Consumer to new channel
-    ets:insert(Consumer_table,[{Consumer_code, {Consumer_pid, Handler_type}}]),
-    lager:info("Consumer ~p was subscribed to channel ~p with type ~p",[Consumer_code,
-									Channel_code,
-									Handler_type]),
-    %% send subscribtio notification to consumers that subscribed with 'all'' option
-    Handler_list = ets:match(Consumer_table, {'$1', {'$2', all}}),
+    %% Send cache to newly subscribed producer
+    %% XXX publish cached messages.
 
+    %% gen_server:cast(self(), {send_cache_to_producer_pid, Producer_pid}),
+    %% Add  Producer to new channel
+    ets:insert(Producer_table,{Producer_code, Producer_pid}),
+    lager:info("Producer ~p was subscribed to channel ~p",[Producer_code, Channel_code]),
+    %% send subscribtio notification to producers that subscribed with 'all'' option
+    Handler_list = ets:match(Producer_table, {'$1', '$2'}),
     lists:foldl(fun([C_code, C_pid], Acc) ->
-			%% Do not sent message to newly subscribed consumer
+			%% Do not sent message to newly subscribed producer
 			case C_code of
-			    Consumer_code -> ok;
-			    _ ->pc_consumer:push_add_subscribtion(C_pid,
-								 Channel_code,
-								 Consumer_code),
+			    Producer_code -> Acc;
+			    _ ->pc_producer:push_message(C_pid,
+                                                         #message{
+                                                            producer_code=Producer_code,
+                                                            channel_code=Channel_code,
+                                                            type=add_subscribtion,
+                                                            data= undefined,
+                                                            meta=#{}}),
 				Acc
 			end
 		end, ok, Handler_list),
@@ -136,35 +141,31 @@ handle_call({add_consumer, Consumer_pid, Consumer_code, Handler_type}, _From,
     
     {reply, Reply, State, Timeout};
 
-%% remove consumer handler consumer and tell consumer
+%% remove producer handler producer and tell producer
 %% to remove table from its own list
-handle_call({remove_consumer, Consumer_code}, _From,
-	    #state{consumer_table=Consumer_table,
+handle_call({remove_producer, Producer_code}, _From,
+	    #state{producer_table=Producer_table,
 		   code=Channel_code,
                    timeout=Timeout}=State)->
 
-    ets:delete(Consumer_table, Consumer_code),
-
-    Handler_list = ets:match(Consumer_table, {'$1', {'$2', all}}),
-
-    lists:foldl(fun([_C_code, C_pid], _Acc) ->
-                        pc_consumer:push_remove_subscribtion(C_pid,
-                                                            Channel_code,
-                                                            Consumer_code)
-		end, ok, Handler_list),
-    
-
-
+    ets:delete(Producer_table, Producer_code),
+    ets:foldl(fun({_C_code, C_pid}, _Acc) ->
+                        pc_producer:push_message(C_pid,
+                                                 #message{
+                                                    producer_code=Producer_code,
+                                                    channel_code=Channel_code,
+                                                    type=remove_subscribtion})
+		end, ok, Producer_table),
     
     Reply = ok,
     {reply, Reply, State, Timeout};
 
 
-handle_call(get_consumers, _From,
-	    #state{consumer_table=Consumer_table,
+handle_call(get_producers, _From,
+	    #state{producer_table=Producer_table,
                    timeout=Timeout}=State)->
     Reply ={ok,
-	    ets:foldl(fun({Key,_Value},Acc) -> [Key| Acc] end, [], Consumer_table)},
+	    ets:foldl(fun({Key,_Value},Acc) -> [Key| Acc] end, [], Producer_table)},
     {reply, Reply, State, Timeout};
     
 
@@ -185,17 +186,16 @@ handle_call(Request, _From, #state{timeout=Timeout}=State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({publish, Message},
-	    #state{code=Channel_code,
-		   consumer_table=Consumer_table,
+	    #state{producer_table=Producer_table,
                    cache_size=Cache_size,
                    current_cache_size=Current_cache_size,
                    cache=Cache,
                    timeout=Timeout}=State)->
     %% todo run this on another temprary process
-    ets:foldl(fun({_Consumer_Code, {Consumer_pid, _Handler_type}}, Acc) ->
-		      pc_consumer:push_message(Consumer_pid, Channel_code, Message),
+    ets:foldl(fun({_Producer_Code, Producer_pid}, Acc) ->
+		      pc_producer:push_message(Producer_pid, Message),
 		      Acc
-	      end, ok, Consumer_table),
+	      end, ok, Producer_table),
     if
         Cache_size =< Current_cache_size ->
             Cache1 = queue:drop(queue:in(Message,Cache)),
@@ -204,20 +204,9 @@ handle_cast({publish, Message},
             Cache1 = queue:in(Message,Cache),
             Current_cache_size1 = Current_cache_size + 1
     end,
-
     {noreply, State#state{current_cache_size=Current_cache_size1,
                           cache=Cache1}, Timeout};
 
-
-handle_cast({send_cache_to_consumer_pid, Consumer_pid},
-            #state{code=Channel_code,
-                   cache=Cache,
-                   timeout=Timeout}=State) ->
-    lists:foreach(fun(Message)->
-                          pc_consumer:push_cached_message(Consumer_pid, Channel_code, Message)
-                  end, queue:to_list(Cache)),
-
-    {noreply, State, Timeout};
 
 handle_cast(Msg, #state{timeout=Timeout}=State) ->
     lager:warning("Unhandled cast message=~p", [Msg]),
@@ -234,16 +223,16 @@ handle_cast(Msg, #state{timeout=Timeout}=State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(timeout, #state{code=Code,
-                            consumer_table=Consumer_table,
+                            producer_table=Producer_table,
                             timeout=Timeout}=State)->
     lager:info("Channel ~p has timeout", [Code]),
-    Consumer_list = ets:match(Consumer_table, {'$1', {'$2', '_'}}),
-    case Consumer_list of
+    Producer_list = ets:match(Producer_table, {'$1', {'$2', '_'}}),
+    case Producer_list of
 	[] ->
-	    lager:info("~p - All consumers are dead. Channel is dying.", [Code]),
+	    lager:info("~p - All producers are dead. Channel is dying.", [Code]),
             {stop, normal , State};
 	_ ->
-            lager:info("~p - There is still alive consumers. Channel will stay alive",
+            lager:info("~p - There is still alive producers. Channel will stay alive",
                        [Code]),
             {noreply, State, Timeout}
 	end;

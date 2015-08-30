@@ -11,8 +11,8 @@
 %% API
 -export([get_channel/1, set_channel/2]).
 -export([get_or_register_channel/1]).
--export([get_consumer/1, set_consumer/2]).
--export([get_or_register_consumer/1]).
+-export([get_producer/1, set_producer/2]).
+-export([get_or_register_producer/1]).
 
 %%%===================================================================
 %%% API
@@ -50,21 +50,21 @@ get_or_register_channel(Channel_code)->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a consumer pid for given consumer code.
+%% Returns a producer pid for given producer code.
 %% @end
 %%--------------------------------------------------------------------
--spec get_consumer(Channel_code::binary()) -> pid()| undefined.
-get_consumer(Channel_code)->
-    get_object(make_consumer_key(Channel_code)).
+-spec get_producer(Channel_code::binary()) -> pid()| undefined.
+get_producer(Channel_code)->
+    get_object(make_producer_key(Channel_code)).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Sets given consumer pid to given consumer code.
+%% Sets given producer pid to given producer code.
 %% @end
 %%--------------------------------------------------------------------
--spec set_consumer(Channel_code::binary(), Channel_pid::pid()) -> pid().
-set_consumer(Channel_code, Channel_pid)->
-    set_object(make_consumer_key(Channel_code), Channel_pid).
+-spec set_producer(Channel_code::binary(), Channel_pid::pid()) -> pid().
+set_producer(Channel_code, Channel_pid)->
+    set_object(make_producer_key(Channel_code), Channel_pid).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -73,9 +73,9 @@ set_consumer(Channel_code, Channel_pid)->
 %% given code and returns current pid.
 %% @end
 %%--------------------------------------------------------------------
--spec get_or_register_consumer(Channel_code::binary()) -> pid().
-get_or_register_consumer(Channel_code)->
-    get_or_register_object(make_consumer_key(Channel_code)).
+-spec get_or_register_producer(Channel_code::binary()) -> pid().
+get_or_register_producer(Channel_code)->
+    get_or_register_object(make_producer_key(Channel_code)).
 
 
 
@@ -89,10 +89,10 @@ get_or_register_consumer(Channel_code)->
 make_channel_key(Channel_code)->
     {channel, Channel_code}.
 
-%% Creates global registry key for given consumer code.
--spec make_consumer_key(Channel_code::binary()) -> term() | undefined.
-make_consumer_key(Consumer_code)->
-    {consumer, Consumer_code}.
+%% Creates global registry key for given producer code.
+-spec make_producer_key(Channel_code::binary()) -> term() | undefined.
+make_producer_key(Producer_code)->
+    {producer, Producer_code}.
 
 %% Get object from global registery
 -spec get_object(Key::term()) -> pid()| undefined.
@@ -136,14 +136,14 @@ get_or_register_object(Key)->
 %%     ok = init_tables().
 
 
-%% set_consumer(Channel_code, Channel_pid) ->
+%% set_producer(Channel_code, Channel_pid) ->
 %%     Channel = #code_to_pid{code=Channel_code,
 %%                            pid=Channel_pid},
 %%     {atomic, ok} = mnesia:transaction(fun() -> mnesia:write(Channel) end),
 %%     {ok, Channel_code}.
 
 
-%% get_consumer(Channel_code) ->
+%% get_producer(Channel_code) ->
 %%     Match = #code_to_pid{code=Channel_code, pid='$1'},
 %%     %% Guards = [{'<', Last_msg_code, '$1'}],
 %%     Guards = [],
@@ -160,7 +160,7 @@ get_or_register_object(Key)->
 %%        {record, code_to_pid},
 %%        {attributes, record_info(fields, code_to_pid)}
 %%       ]],
-%%      [pc_consumers,
+%%      [pc_producers,
 %%       [{type, bag},
 %%        {ram_copies, [node()| nodes()]},
 %%        {record, code_to_pid},

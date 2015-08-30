@@ -27,7 +27,7 @@
 %% @end
 %%--------------------------------------------------------------------
 -callback authenticate(Consumer_Code::binary(),
-                       Auth_info::binary(),
+                       Meta::message_meta(),
                        State::term()) -> denied| granted.
 
 
@@ -36,6 +36,11 @@
 %%%===================================================================
 -spec get_authentication_backend()->{Module::atom(), Configuration::term()}.
 get_authentication_backend() ->
-    {ok, {Module, Args}} = application:get_env(publicator_core, auth_backend),
+    case application:get_env(publicator_core, auth_backend) of
+        {ok, {Module, Args}} -> ok;
+        %% if there is no configuration do not give any permission for anything.
+        undefined -> {Module, Args} = {publicator_static_auth_backend, []}
+    end,
+    lager:warning("Module=~p, Args=~p", [Module, Args]),
     State = Module:init_state(Args),
     {Module, State}.
