@@ -12,8 +12,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(CONSUMER1, <<"consumercode1">>).
--define(CONSUMER2, <<"consumercode2">>).
 -define(CHANNEL1, <<"channelcode1">>).
 -define(CHANNEL2, <<"channelcode2">>).
 -define(MESSAGE1, <<"message1">>).
@@ -87,27 +85,12 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-    [my_test_case].
+    [uninitialized_consumer_test_case,
+     eunit_static_auth_backend_test_case
+    ].
 
-%%--------------------------------------------------------------------
-%% @spec TestCase() -> Info
-%% Info = [tuple()]
-%% @end
-%%--------------------------------------------------------------------
-my_test_case() ->
-    [].
-
-%%--------------------------------------------------------------------
-%% @spec TestCase(Config0) ->
-%%               ok | exit() | {skip,Reason} | {comment,Comment} |
-%%               {save_config,Config1} | {skip_and_save,Reason,Config1}
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% Comment = term()
-%% @end
-%%--------------------------------------------------------------------
-my_test_case(_Config) ->
-    Consumer_code = ?CONSUMER1,
+uninitialized_consumer_test_case(_Config) ->
+    Consumer_code = <<"no-consumer">>,
     Channel_code = ?CHANNEL1,
     Msg = publicator_core:make_message(Consumer_code, Channel_code, ?MESSAGE1, ?META),
     %% test uninitialized sesssions
@@ -117,3 +100,6 @@ my_test_case(_Config) ->
     {error, producer_not_found} = publicator_core:unsubscribe(Consumer_code, Channel_code),
     {error, producer_not_found} = publicator_core:get_subscribtions(Consumer_code),
     ok.
+
+eunit_static_auth_backend_test_case(_Config) ->
+    ok = eunit:test(static_auth_backend_tests).

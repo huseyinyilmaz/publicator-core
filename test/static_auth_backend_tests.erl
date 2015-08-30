@@ -81,6 +81,7 @@ server_closed_auth_test_() ->
      {"Test all permissions disabled.",
       ?_test(
          begin
+             a = b,
 	     {error,permission_denied} = publicator_core:create_producer(?META)
          end)
      }}.
