@@ -18,9 +18,7 @@
 -define(CHANNEL2, <<"channelcode2">>).
 -define(MESSAGE1, <<"message1">>).
 -define(MESSAGE2, <<"message2">>).
--define(AUTH_INFO, <<"test_auth_code">>).
--define(EXTRA_DATA, []).
--define(META, #{extra_data})
+-define(META, #{}).
 -define(DELAY, 500).
 
 -define(PERMISSION_CONFIG,
@@ -54,7 +52,7 @@ suite() ->
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
     lager:start(),
-    lager:info("Setup server"),
+%%    lager:info("Setup server"),
     Configuration = {publicator_static_auth_backend,
                      [[{consumer_code, all},
                        {auth_info, all},
@@ -74,7 +72,7 @@ init_per_testcase(_TestCase, Config) ->
 %% @end
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, _Config) ->
-    lager:info("Cleanup server"),
+%%    lager:info("Cleanup server"),
     ok = publicator_core:stop(),
     application:stop(lager),
     application:stop(goldrush),
@@ -111,13 +109,11 @@ my_test_case() ->
 my_test_case(_Config) ->
     Consumer_code = ?CONSUMER1,
     Channel_code = ?CHANNEL1,
+    Msg = publicator_core:make_message(Consumer_code, Channel_code, ?MESSAGE1, ?META),
     %% test uninitialized sesssions
-    {error, consumer_not_found} = publicator_core:get_messages(Consumer_code),
-    {error, consumer_not_found} = publicator_core:publish(Consumer_code,
-                                                          Channel_code,
-                                                          ?MESSAGE1, ?EXTRA_DATA),
-    {error, consumer_not_found} = publicator_core:subscribe(Consumer_code, Channel_code,
-                                                            message_only, ?EXTRA_DATA),
-    {error, consumer_not_found} = publicator_core:unsubscribe(Consumer_code, Channel_code),
-    {error, consumer_not_found} = publicator_core:get_subscribtions(Consumer_code),
+    {error, producer_not_found} = publicator_core:get_messages(Consumer_code),
+    {error, producer_not_found} = publicator_core:publish(Msg),
+    {error, producer_not_found} = publicator_core:subscribe(Consumer_code, Channel_code, ?META),
+    {error, producer_not_found} = publicator_core:unsubscribe(Consumer_code, Channel_code),
+    {error, producer_not_found} = publicator_core:get_subscribtions(Consumer_code),
     ok.
