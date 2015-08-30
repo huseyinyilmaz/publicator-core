@@ -30,7 +30,7 @@ clean:
 	if [ -d "test" ]; then rm -f test/*.beam; fi
 	rm -f erl_crash.dump
 
-test: clean compile eunit
+test: clean compile ct
 
 eunit:
 	@$(REBAR) eunit skip_deps=true
