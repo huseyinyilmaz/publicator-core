@@ -3,14 +3,7 @@
 
 -include("../include/publicator_core.hrl").
 
--export([setup_server/0, cleanup_server/1]).
--export([setup_server_open_all_permissions/0]).
--export([setup_server_close_all_permissions/0]).
-
--define(CHANNEL1, <<"channelcode1">>).
--define(CHANNEL2, <<"channelcode2">>).
--define(MESSAGE1, <<"message1">>).
--define(MESSAGE2, <<"message2">>).
+-define(CHANNEL, <<"channelcode">>).
 -define(META, #{}).
 
 -define(PERMISSION_CONFIG,
@@ -24,64 +17,25 @@
            {can_create_channel, true}]]}).
 -define(DELAY, 100).
 
-setup_server() ->
-    lager:start(),
-    lager:debug("Setup server"),
-    ok = publicator_core:start().
+server_opened_auth_test() ->
+    {ok, Producer_code1, _} = publicator_core:create_producer(?META),
+    ?assertEqual(ok, publicator_core:subscribe(Producer_code1, ?CHANNEL, ?META)),
+    Msg = #message{type=message,
+                   data= <<"msg">>,
+                   channel_code=?CHANNEL,
+                   producer_code=Producer_code1},
+    ok = publicator_core:publish(Msg),
+    timer:sleep(?DELAY),
+    {ok, Messages} = publicator_core:get_messages(Producer_code1),
+    ?assertEqual([Msg], Messages).
 
-setup_server_open_all_permissions() ->
-    Configuration = {publicator_static_auth_backend,
-                     [[{consumer_code, all},
-                       {auth_info, all},
-                       {extra_data, []}]]},
-    pc_utils:set_env(publicator_core, auth_backend, Configuration),
-    pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
-    setup_server().
 
-setup_server_close_all_permissions() ->
+server_closed_auth_test() ->
     Configuration = {publicator_static_auth_backend,
                      [[{consumer_code, <<"closed">>},
                        {auth_info, <<"closed">>},
                        {extra_data}, [{<<"some_data">>, <<"some_value">>}]]]},
     pc_utils:set_env(publicator_core, auth_backend, Configuration),
     pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
-    setup_server().
+    {error,permission_denied} = publicator_core:create_producer(?META).
 
-cleanup_server(_) ->
-    lager:debug("Cleanup server"),
-    ok = publicator_core:stop(),
-    application:stop(lager),
-    application:stop(goldrush).
-
-server_opened_auth_test_() ->
-    {setup,
-     fun setup_server_open_all_permissions/0,
-     fun cleanup_server/1,
-     {"Test all permissions enabled.",
-      ?_test(
-         begin
-	     {ok, Producer_code1, _} = publicator_core:create_producer(?META),
-             ?assertEqual(ok, publicator_core:subscribe(Producer_code1, ?CHANNEL1, ?META)),
-             Msg = #message{type=message,
-                            data=?MESSAGE1,
-                            channel_code=?CHANNEL1,
-                            producer_code=Producer_code1},
-
-             ok = publicator_core:publish(Msg),
-             timer:sleep(?DELAY),
-	     {ok, Messages} = publicator_core:get_messages(Producer_code1),
-	     ?assertEqual([Msg], Messages)
-         end)
-     }}.
-
-server_closed_auth_test_() ->
-    {setup,
-     fun setup_server_close_all_permissions/0,
-     fun cleanup_server/1,
-     {"Test all permissions disabled.",
-      ?_test(
-         begin
-             a = b,
-	     {error,permission_denied} = publicator_core:create_producer(?META)
-         end)
-     }}.

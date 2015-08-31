@@ -92,7 +92,8 @@ all() ->
      send_message_test_case,
      channel_seperation_test_case,
      receive_message_test_case,
-     eunit_static_auth_backend_test_case
+     eunit_static_auth_backend_test_case,
+     eunit_utils_test_case
     ].
 
 uninitialized_consumer_test_case(_Config) ->
@@ -214,6 +215,11 @@ receive_message_test_case(_Config) ->
 eunit_static_auth_backend_test_case(_Config) ->
     ok = eunit:test(static_auth_backend_tests).
 
+eunit_utils_test_case(_Config) ->
+    ok = eunit:test(utils_tests).
+
+%% UTILITY FUNCTIONS
+%%%%%%%%%%%%%%%%%%%%
 is_equal(First, First) -> true;
 is_equal(First, Second) ->
     ct:pal(error, "Assertion Failed:~nvalue=~p~nexpected=~p", [First,Second]),

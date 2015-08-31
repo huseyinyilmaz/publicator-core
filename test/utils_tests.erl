@@ -3,7 +3,7 @@
 
 -include("../include/publicator_core.hrl").
 
-make_message_test () ->
+make_message_test() ->
     Channel_code = <<"channel_code">>,
     Producer_code = <<"producer_code">>,
     Data = <<"message">>,
