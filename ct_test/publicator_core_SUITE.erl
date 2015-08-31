@@ -185,8 +185,36 @@ channel_seperation_test_case(_Config) ->
     ok.
 
 receive_message_test_case(_Config) ->
-    % test if receiving message is working.
-    {skip, not_implemented}.
+    Channel_code = ?CHANNEL1,
+    % create producer
+    {ok, Producer_code1, _} = publicator_core:create_producer(?META),
+    {ok, Producer_code2, _} = publicator_core:create_producer(?META),
+    timer:sleep(?DELAY),
+    % create messages
+    Msg1 = publicator_core:make_message(Producer_code1, Channel_code, ?MESSAGE1, ?META),
+    Msg2 = publicator_core:make_message(Producer_code2, Channel_code, ?MESSAGE2, ?META),
+    % Subscribe all producers to all channels
+    ok = publicator_core:subscribe(Producer_code1, Channel_code, ?META),
+    ok = publicator_core:subscribe(Producer_code2, Channel_code, ?META),
+    % create 3 listeners.
+    {ok, Mock1} = process_mock:start_link(),
+    {ok, Mock2} = process_mock:start_link(),
+    % connect listeners to producers.
+    publicator_core:add_message_handler(Producer_code1, Mock1),
+    publicator_core:add_message_handler(Producer_code2, Mock2),
+    % publish messages
+    publicator_core:publish(Msg1),
+    timer:sleep(?DELAY),
+    publicator_core:publish(Msg2),
+    % make sure listeners got corect_messages
+    true = is_equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock1, 2)),
+    true = is_equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock2, 2)),
+    ok.
 
 eunit_static_auth_backend_test_case(_Config) ->
     ok = eunit:test(static_auth_backend_tests).
+
+is_equal(First, First) -> true;
+is_equal(First, Second) ->
+    ct:pal(error, "Assertion Failed:~nvalue=~p~nexpected=~p", [First,Second]),
+    false.
