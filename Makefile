@@ -36,7 +36,6 @@ eunit:
 	@$(REBAR) eunit skip_deps=true
 
 ct:
-
 	@$(REBAR) ct skip_deps=true
 
 build-erlang-plt:
