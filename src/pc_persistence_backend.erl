@@ -25,15 +25,6 @@
 -record(state, {module::atom(),
                 inner_state::term()}).
 
-
--callback init(Args :: list(term())) -> 'ok'|{'error', Reason :: string()}.
-
--callback handle(Event :: atom()) -> NextEvent :: atom().
-
--callback sync(Node :: node(), Timeout :: non_neg_integer()) -> 'ok'|{'error', Reason :: string()}.
-
--callback insertMessage(Channel :: binary(), Msg:: binary())-> ok.
-
 %%%===================================================================
 %%% API
 %%%===================================================================
