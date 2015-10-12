@@ -3,6 +3,9 @@ REBAR = ./rebar
 MNESIA_DIR = /tmp/mnesia
 NODE_NAME = publicator@127.0.0.1
 
+#REBAR_URL = https://raw.github.com/wiki/rebar/rebar/rebar
+REBAR_URL = https://github.com/rebar/rebar/wiki/rebar
+
 APPS =   kernel stdlib crypto webtool mnesia eunit tools os_mon runtime_tools xmerl inets
 
 .PHONY : all get-deps get-rebar configure compile clean test eunit ct build-erlang-plt build-plt dialyze docs start blackbox
@@ -12,7 +15,7 @@ all: compile
 
 get-rebar:
 	rm -f rebar
-	wget https://github.com/rebar/rebar/wiki/rebar
+	wget $(REBAR_URL)
 	chmod a+x rebar
 
 # get dependencies

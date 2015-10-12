@@ -2,7 +2,7 @@
 %%% @author Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%% @copyright (C) 2014, Huseyin Yilmaz
 %%% @doc
-%%% Behivour that implements authentication backend behivour.
+%%% Behivour that implements permission backend behivour.
 %%% @end
 %%% Created : 18 Jan 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------
@@ -10,31 +10,23 @@
 
 -include("../include/publicator_core.hrl").
 
--export([get_permission_backend/0]).
+-export([get_backend/0]).
 
 
-%%--------------------------------------------------------------------
-%% @doc
-%% @spec
-%% @end
-%%--------------------------------------------------------------------
--callback init_state(Args::term()) -> State::term().
+%% We are not adding this because it will be added by gen_server behaviour already.
+%% -callback start_link(code(), term(), message_meta) -> {ok, pid()} | ignore | {error, any()}.
 
 %%--------------------------------------------------------------------
 %% @doc
-%% @spec
+%% Returns permissions for given Channel.
 %% @end
 %%--------------------------------------------------------------------
--callback get_permissions(Consumer_Code::binary(),
-                          Channel_code::binary(),
-                          State::term()) -> permission_type().
-
+-callback has_permission(Permission::atom(), Channel_code::binary()) -> boolean().
 
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec get_permission_backend()->{Module::atom(), Configuration::term()}.
-get_permission_backend() ->
+-spec get_backend()->{Module::atom(), Args::term()}.
+get_backend() ->
     {ok, {Module, Args}} = application:get_env(publicator_core, permission_backend),
-    State = Module:init_state(Args),
-    {Module, State}.
+    {Module, Args}.

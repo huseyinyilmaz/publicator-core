@@ -3,6 +3,11 @@
 %%% @copyright (C) 2014, Huseyin Yilmaz
 %%% @doc
 %%% Behivour that implements authentication backend behivour.
+%%%
+%%% Auth backend is implemented as a library. The reason it is because
+%%% authentication is done on user level. So authentication will be run
+%%% by user's process. At the moment of authentication there is no
+%%% channel.
 %%% @end
 %%% Created : 18 Jan 2014 by Huseyin Yilmaz <huseyin@huseyins-air.home>
 %%%-------------------------------------------------------------------

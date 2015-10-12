@@ -81,13 +81,13 @@ publish(#message{producer_code=Producer_code}=Message)->
                        ok  | {error, invalid_channel_code}
                            | {error, producer_not_found}
                            | {error, permission_denied}.
-subscribe(Producer_code, Channel_code, Meta) ->
+subscribe(Producer_code, Channel_code, _Meta) ->
     case is_channel_code_valid(Channel_code) of
 	false -> {error, invalid_channel_code};
 	true ->
 	    case pc_producer:get(Producer_code) of
                 {ok, Producer_pid} ->
-                    pc_producer:subscribe(Producer_pid, Channel_code, Meta);
+                    pc_producer:subscribe(Producer_pid, Channel_code);
 		{error, not_found} -> {error, producer_not_found}
 	    end
     end.
@@ -149,10 +149,10 @@ get_producer(Producer_code) ->
                                | {error, producer_not_found}
                                | {error, permission_denied}
                                | {error, invalid_channel_code}.
-get_producers(Producer_code, Channel_code, Extra_data) ->
+get_producers(Producer_code, Channel_code, _Extra_data) ->
     case pc_producer:get(Producer_code) of
 	{ok, Producer_pid} ->
-            pc_producer:get_producers(Producer_pid, Channel_code, Extra_data);
+            pc_producer:get_producers(Producer_pid, Channel_code);
 	{error, not_found} -> {error, producer_not_found}
     end.
 
