@@ -109,7 +109,10 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-    [get_backend_test_case].
+    [get_backend_test_case,
+     valid_permission_test_case,
+     invalid_permission_test_case,
+     insufficent_permission_test_case].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->
@@ -135,3 +138,61 @@ get_backend_test_case(_Config) ->
     {Module, Args} = pc_permission_backend:get_backend(),
     Configuration = {Module, Args},
     ok.
+
+valid_permission_test_case(_Config) ->
+    % Allow all permissions.
+    Configuration = {publicator_static_permission_backend,
+                     [[{consumer_code, all},
+                       {extra_data, []},
+                       {channel_code, all},
+                       {publish, true},
+                       {subscribe, true},
+                       {create, true},
+                       {listen_events, true}]]},
+    pc_utils:set_env(publicator_core, permission_backend, Configuration),
+    % initialize backend
+    {Module, Args} = pc_permission_backend:get_backend(),
+    {ok, Pid} = Module:start_link(<<"Code">>, Args, ?META),
+    true = Module:has_permission(Pid, publish, <<"channel1">>),
+    ok.
+
+invalid_permission_test_case(_Config) ->
+    % add unsupported consumer code.
+    Configuration = {publicator_static_permission_backend,
+                     [[{consumer_code, <<"some other code">>},
+                       {extra_data, []},
+                       {channel_code, all},
+                       {publish, true},
+                       {subscribe, true},
+                       {create, true},
+                       {listen_events, true}]]},
+    pc_utils:set_env(publicator_core, permission_backend, Configuration),
+    % initialize backend
+    {Module, Args} = pc_permission_backend:get_backend(),
+    {ok, Pid} = Module:start_link(<<"code">>, Args, ?META),
+    false = Module:has_permission(Pid, publish, <<"channel1">>),
+    ok.
+
+insufficent_permission_test_case(_Config) ->
+    % do not add permission
+    Configuration = {publicator_static_permission_backend,
+                     [[{consumer_code, all},
+                       {extra_data, []},
+                       {channel_code, all},
+                       {publish, false},
+                       {subscribe, true},
+                       {create, true},
+                       {listen_events, true}]]},
+    pc_utils:set_env(publicator_core, permission_backend, Configuration),
+    % initialize backend
+    {Module, Args} = pc_permission_backend:get_backend(),
+    {ok, Pid} = Module:start_link(<<"code">>, Args, ?META),
+    true = is_equal(Module:has_permission(Pid, publish, <<"channel1">>), false),
+    ok.
+
+%% UTILITY FUNCTIONS
+%%%%%%%%%%%%%%%%%%%%
+is_equal(First, First) -> true;
+is_equal(First, Second) ->
+    ct:pal(error, "Assertion Failed:~nvalue=~p~nexpected=~p", [First,Second]),
+    false.

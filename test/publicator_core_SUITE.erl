@@ -31,6 +31,16 @@
            {create, true},
            {listen_events, true}]]}).
 
+-define(CANNOT_PUBLISH_PERMISSION_CONFIG,
+        {publicator_static_permission_backend,
+         [[{consumer_code, all},
+           {extra_data, []},
+           {channel_code, all},
+           {publish, false},
+           {subscribe, true},
+           {create, true},
+           {listen_events, true}]]}).
+
 -define(PERSISTENCE_CONFIG,
         {publicator_inmemmory_persistence_backend, []}).
 
@@ -50,14 +60,14 @@ suite() ->
 %% Reason = term()
 %% @end
 %%--------------------------------------------------------------------
+init_per_testcase(permission_integration_test_case, Config) ->
+    lager:start(),
+    pc_utils:set_env(publicator_core, permission_backend, ?CANNOT_PUBLISH_PERMISSION_CONFIG),
+    pc_utils:set_env(publicator_core, persistence_backend, ?PERSISTENCE_CONFIG),
+    ok = publicator_core:start(),
+    Config;
 init_per_testcase(_TestCase, Config) ->
     lager:start(),
-%%    lager:info("Setup server"),
-    Configuration = {publicator_static_auth_backend,
-                     [[{consumer_code, all},
-                       {auth_info, all},
-                       {extra_data, []}]]},
-    pc_utils:set_env(publicator_core, auth_backend, Configuration),
     pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
     pc_utils:set_env(publicator_core, persistence_backend, ?PERSISTENCE_CONFIG),
     ok = publicator_core:start(),
@@ -92,6 +102,7 @@ all() ->
      send_message_test_case,
      channel_seperation_test_case,
      receive_message_test_case,
+     permission_integration_test_case,
      eunit_utils_test_case
     ].
 
@@ -211,6 +222,17 @@ receive_message_test_case(_Config) ->
     true = is_equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock2, 2)),
     ok.
 
+permission_integration_test_case(_Config) ->
+    Channel_code = ?CHANNEL1,
+    % create producer
+    {ok, Producer_code1, _} = publicator_core:create_producer(?META),
+    timer:sleep(?DELAY),
+    % create messages
+    Msg1 = publicator_core:make_message(Producer_code1, Channel_code, ?MESSAGE1, ?META),
+    % Subscribe all producers to all channels
+    ok = publicator_core:subscribe(Producer_code1, Channel_code, ?META),
+    true = is_equal({error,permission_denied}, publicator_core:publish(Msg1)),
+    ok.
 
 eunit_utils_test_case(_Config) ->
     ok = eunit:test(utils_tests).
