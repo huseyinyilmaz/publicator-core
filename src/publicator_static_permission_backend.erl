@@ -22,7 +22,7 @@
 -include("../include/publicator_core.hrl").
 
 -record(filter, {consumer_code::binary()|all,
-                 extra_data::list(),
+                 meta::list(),
                  channel_code::binary()|all,
                  permissions::#permissions{}}).
 
@@ -51,8 +51,9 @@ start_link(Code, Args, Meta) ->
 -spec has_permission(pid(), atom(), code()) -> boolean().
 has_permission(Pid, Perm, Channel_code) ->
     {ok, Resp} = gen_server:call(Pid, {has_permission, Perm, Channel_code}),
-    Resp,
-    true.
+    Resp.
+
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -72,10 +73,10 @@ has_permission(Pid, Perm, Channel_code) ->
 init([Code, Args, _Meta]) ->
     Filters = [#filter{consumer_code=proplists:get_value(consumer_code, Arg, all),
                        channel_code=proplists:get_value(channel_code, Arg, all),
-                       extra_data=proplists:get_value(extra_data, Arg, []),
+                       meta=proplists:get_value(meta, Arg, []),
                        permissions=#permissions{
                                       publish=proplists:get_value(publish, Arg, false),
-                                      subscribe=proplists:get_value(subscribe_messages, Arg, false),
+                                      subscribe=proplists:get_value(subscribe, Arg, false),
                                       create=proplists:get_value(create, Arg, false),
                                       listen_events=proplists:get_value(listen_events, Arg, false)}}
                    || Arg <- Args],
@@ -90,7 +91,6 @@ init([Code, Args, _Meta]) ->
                              end
                      end,
                      Filters),
-
     % TODO add meta suport
     {ok, #state{code=Code, args=Args, filters=Filters2}}.
 
@@ -187,9 +187,10 @@ can_pass_filter(#filter{permissions=#permissions{
                                        listen_events=Filter_listen_events,
                                        create=Filter_create}},
                 Permission)->
-    case Permission of
+    Resp = case Permission of
         publish-> Filter_publish;
         subscribe->Filter_subscribe;
         listen_events->Filter_listen_events;
         create->Filter_create
-    end.
+    end,
+    Resp.
