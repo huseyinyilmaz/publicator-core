@@ -149,10 +149,10 @@ get_producer(Producer_code) ->
                                | {error, producer_not_found}
                                | {error, permission_denied}
                                | {error, invalid_channel_code}.
-get_producers(Producer_code, Channel_code, Extra_data) ->
+get_producers(Producer_code, Channel_code, _Extra_data) ->
     case pc_producer:get(Producer_code) of
 	{ok, Producer_pid} ->
-            pc_producer:get_producers(Producer_pid, Channel_code, Extra_data);
+            pc_producer:get_producers(Producer_pid, Channel_code);
 	{error, not_found} -> {error, producer_not_found}
     end.
 

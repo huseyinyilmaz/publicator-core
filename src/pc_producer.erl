@@ -178,10 +178,11 @@ handle_call({publish,
                       channel_code=Channel_code}=Message},
              _From,
             #state{code=Producer_code,
+                   permission_module=Perm_module,
                    permission_backend=Perm_backend}=State) ->
     case get_or_create_channel(Channel_code, State) of
         {ok, Channel_pid} ->
-            case Perm_backend:has_permission(publish, Channel_code) of
+            case Perm_module:has_permission(Perm_backend, publish, Channel_code) of
                 true ->
                     pc_channel:publish(Channel_pid, Message),
                     {reply, ok, State, ?TIMEOUT};

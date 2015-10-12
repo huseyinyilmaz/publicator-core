@@ -51,7 +51,8 @@ start_link(Code, Args, Meta) ->
 -spec has_permission(pid(), atom(), code()) -> boolean().
 has_permission(Pid, Perm, Channel_code) ->
     {ok, Resp} = gen_server:call(Pid, {has_permission, Perm, Channel_code}),
-    Resp.
+    Resp,
+    true.
 
 %%%===================================================================
 %%% gen_server callbacks
