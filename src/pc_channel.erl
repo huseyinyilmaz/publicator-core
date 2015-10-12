@@ -92,7 +92,7 @@ init([Code, Cache_size, Timeout]) ->
                         timeout=Timeout
                        }};
 	Pid when is_pid(Pid) -> 
-	    {stop, {already_exists, Pid}}
+	    {stop, {already_started, Pid}}
     end.
 
 %%--------------------------------------------------------------------

@@ -34,7 +34,7 @@ start_child(Channel_code) ->
                [Channel_code, Cache_size, Timeout]),
     case supervisor:start_child(?SERVER, Args_to_append) of
         {ok, Pid} -> {ok, Pid};
-        {error ,{already_exists, Pid}} -> {ok, Pid}
+        {error ,{already_started, Pid}} -> {ok, Pid}
     end.
 
 %%--------------------------------------------------------------------

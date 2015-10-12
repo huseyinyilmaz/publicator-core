@@ -9,18 +9,17 @@
 -module(pc_producer).
 
 -behaviour(gen_server).
--include_lib("eunit/include/eunit.hrl").
 
 -include("../include/publicator_core.hrl").
 
 %% API
--export([start_link/3, get/1, get_code/1,
+-export([start_link/2, get/1, get_code/1,
 	 get_count/0, stop/1, push_message/2,
-	 get_messages/1, subscribe/3,
+	 get_messages/1, subscribe/2,
 	 publish/2, get_subscribtions/1, unsubscribe/2,
 	 add_message_handler/2, remove_message_handler/2]).
 
--export([get_producers/3]).
+-export([get_producers/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -31,13 +30,12 @@
 
 -record(state, {code :: binary(),                           % producer code
 		channels :: dict:dict(binary(), pid()),          % producer's channel list
-		channels_cache :: dict:dict(binary(), pid()),     % channels cache that this producer reached
 		messages :: queue:queue(binary()),          % messages dict (for rest interface)
                 max_message_count :: number(),
                 current_message_count :: number(),
 		handlers :: [pid()],         % current listeners that will received messages
-                permission_module :: atom(), % permission_module
-                permission_state :: term()   % permission_state
+                permission_module :: atom(),
+                permission_backend :: pid()
                }).
 
 %%%===================================================================
@@ -48,9 +46,9 @@
 %% Starts a new producer server
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(binary(), atom(), term()) -> {ok, pid()} | ignore | {error, any()}.
-start_link(Code, Permission_module, Permission_state) ->
-    gen_server:start_link(?MODULE, [Code, Permission_module, Permission_state], []).
+-spec start_link(code(), term()) -> {ok, pid()} | ignore | {error, any()}.
+start_link(Code, Meta) ->
+    gen_server:start_link(?MODULE, [Code, Meta], []).
 
 -spec get(binary()) -> {ok, pid()} | {error, not_found}.
 get(Code) ->
@@ -63,13 +61,12 @@ get(Code) ->
     end.
 
 -spec get_producers(Pid::pid(),
-                   Channel_code::pid(),
-                   Extra_data::term())->
+                   Channel_code::pid())->
                            {ok, list()}
                                | {error, permission_denied}
                                | {error, invalid_channel_code}.
-get_producers(Pid, Channel_code, Extra_data)->
-    gen_server:call(Pid,{get_producers, Channel_code, Extra_data}).
+get_producers(Pid, Channel_code)->
+    gen_server:call(Pid,{get_producers, Channel_code}).
 
 -spec get_code(pid()) -> {ok, binary()}.
 get_code(Pid) ->
@@ -91,10 +88,10 @@ stop(Pid) ->
 get_count() ->
     {ok, ets:info(producer, size)}.
 
--spec subscribe(pid(), code(), message_meta()) ->
+-spec subscribe(pid(), code()) ->
                        ok | {error, permission_denied}.
-subscribe(Pid, Channel_code, Meta)->
-    gen_server:call(Pid, {subscribe, Channel_code, Meta}).
+subscribe(Pid, Channel_code)->
+    gen_server:call(Pid, {subscribe, Channel_code}).
 
 unsubscribe(Pid, Channel_code)->
     gen_server:call(Pid, {unsubscribe, Channel_code}).
@@ -128,24 +125,34 @@ remove_message_handler(Pid,Handler_pid) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-init([Code, Permission_module, Permission_state]) ->
+init([Code, Meta]) ->
     Self = self(),
+    lager:info("CODE=~p~n", [Code]),
+    lager:info("SELF=~p~n", [Self]),
+    lager:info("VAL=~p~n", [pc_global:get_or_register_producer(Code)]),
+    lager:info("VAL2=~p~n", [pc_global:get_or_register_producer(Code)]),
     case pc_global:get_or_register_producer(Code) of
 	Self ->
-	    {ok,
-	     #state{code=Code,
-		    channels=dict:new(),
-		    channels_cache=dict:new(),
-		    messages=queue:new(),
-                    max_message_count=20,
-                    current_message_count=0,
-		    handlers=[],
-                    permission_module=Permission_module,
-                    permission_state=Permission_state},
-	     ?TIMEOUT
-	    };
+            % initialize permission backend after initialization
+            {Module, Args} = pc_permission_backend:get_backend(),
+            case Module:start_link(Code, Args, Meta) of
+                {ok, Pid} -> {ok,
+                              #state{
+                                 code=Code,
+                                 channels=dict:new(),
+                                 messages=queue:new(),
+                                 max_message_count=20,
+                                 current_message_count=0,
+                                 handlers=[],
+                                 permission_module=Module,
+                                 permission_backend=Pid},
+                              ?TIMEOUT};
+                {error, Reason} ->
+                    lager:info("Start link returned an error ~p~n", [Reason]),
+                    {error, Reason}
+            end;
 	Pid when is_pid(Pid) -> 
-	    {error, {already_exists, Pid}}
+	    {error, {already_started, Pid}}
     end.
     
 %%--------------------------------------------------------------------
@@ -168,77 +175,53 @@ handle_call(get_code, _From, #state{code=Code}=State) ->
 
 handle_call({publish,
              #message{producer_code=Producer_code,
-                      channel_code=Channel_code,
-                      meta=Meta}=Message},
+                      channel_code=Channel_code}=Message},
              _From,
             #state{code=Producer_code,
-                   permission_module=Permission_module,
-                   permission_state=Permission_state}=State) ->
-    case get_cached_channel(Channel_code, State, Meta) of
-        {{ok, Channel_pid}, State2} ->
-            case Permission_module:has_permission(can_publish,
-                                                  Producer_code,
-                                                  Channel_code,
-                                                  Meta,
-                                                  Permission_state) of
-                {true,Permission_state2} ->
+                   permission_backend=Perm_backend}=State) ->
+    case get_or_create_channel(Channel_code, State) of
+        {ok, Channel_pid} ->
+            case Perm_backend:has_permission(publish, Channel_code) of
+                true ->
                     pc_channel:publish(Channel_pid, Message),
-                    {reply,
-                     ok,
-                     State2#state{permission_state=Permission_state2},
-                     ?TIMEOUT};
-                {false,Permission_state2} ->
-                    {reply,
-                     {error, permission_denied},
-                     State2#state{permission_state=Permission_state2},
-                     ?TIMEOUT}
+                    {reply, ok, State, ?TIMEOUT};
+                false ->
+                    {reply, {error, permission_denied}, State, ?TIMEOUT}
             end;
-        {{error, permission_denied}, State2} ->
-            {reply, {error, permission_denied}, State2, ?TIMEOUT}
+        {error, permission_denied} ->
+            {reply, {error, permission_denied}, State, ?TIMEOUT}
     end;
 
-handle_call({subscribe, Channel_code, Meta}, _From,
+handle_call({subscribe, Channel_code}, _From,
 	    #state{code=Code,
 		   channels=Channels_dict,
-                   permission_module=Permission_module,
-                   permission_state=Permission_state}=State) ->
-    case get_cached_channel(Channel_code, State, Meta) of
-        {{ok, Channel_pid}, State2} ->
+                   permission_module=Perm_module,
+                   permission_backend=Perm_backend}=State) ->
+    case get_or_create_channel(Channel_code, State) of
+        {ok, Channel_pid} ->
             Reply = ok,
+            State2 = State,
             %% if value is already exist in the dictionary log a warning
             case dict:is_key(Channel_code, Channels_dict) of
                 true ->
                     {reply, Reply, State, ?TIMEOUT};
                 false ->
-                    case Permission_module:has_permission(
-                           %% case Handler_type of
-                           %%     all -> can_subscribe_all_events;
-                           %%     message_only -> can_subscribe_messages
-                           %% end,
-                           can_subscribe_all_events,
-                           Code,
-                           Channel_code,
-                           Meta,
-                           Permission_state) of
-                        {true, Permission_state2} ->
+                    case Perm_module:has_permission(
+                           Perm_backend, subscribe, Channel_code) of
+                        true ->
                             ok = pc_channel:add_producer(Channel_pid, self(), Code),
                             {reply,
                              Reply,
                              State2#state{channels=dict:store(Channel_code,
                                                               Channel_pid,
-                                                              Channels_dict),
-                                          permission_state=Permission_state2},
+                                                              Channels_dict)},
                              ?TIMEOUT};
-
-                        {false, Permission_state2} ->
-                            {reply,
-                             {error, permission_denied},
-                             State2#state{permission_state=Permission_state2},
-                             ?TIMEOUT}
+                        false ->
+                            {reply, {error, permission_denied}, State, ?TIMEOUT}
                     end
             end;
-        {{error, permission_denied}, State2} ->
-            {reply, {error, permission_denied}, State2}
+        {error, permission_denied} ->
+            {reply, {error, permission_denied}, State}
     end;
 
 handle_call({unsubscribe, Channel_code}, _From,
@@ -283,14 +266,13 @@ handle_call(get_subscribtions, _From, #state{channels=Channels_dict}=State)->
 
 
 handle_call({get_producers,
-             Channel_code,
-             Extra_data}, _From, State)->
-    case get_cached_channel(Channel_code, State, Extra_data) of
-        {{ok, Channel_pid}, State2} ->
+             Channel_code}, _From, State)->
+    case get_or_create_channel(Channel_code, State) of
+        {ok, Channel_pid} ->
             {ok, Consumer_list} = pc_channel:get_producers(Channel_pid),
-            {reply, {ok, Consumer_list}, State2, ?TIMEOUT};
-        {{error, permission_denied}, State2} ->
-            {reply, {error, permission_denied}, State2, ?TIMEOUT}
+            {reply, {ok, Consumer_list}, State, ?TIMEOUT};
+        {error, permission_denied} ->
+            {reply, {error, permission_denied}, State, ?TIMEOUT}
     end.
 
 
@@ -405,58 +387,26 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-%%% Gets Channel from subscribtions list or channels cache,
-%%% If it cannot find it, function fill query the global channel list
-get_cached_channel(Channel_code,
-                   #state{channels=Channels_dict,
-                          channels_cache=Channels_cache_dict}=State,
-                  Meta) ->
-    case dict:find(Channel_code, Channels_dict) of
-	{ok, Channel_pid} -> Result = Channel_pid,
-			     {{ok, Result}, State};
+get_or_create_channel(Channel_code,
+                      #state{channels=Channels,
+                             permission_module=Perm_module,
+                             permission_backend=Perm_backend})->
+
+    case dict:find(Channel_code, Channels) of
+	{ok, Channel_pid} ->
+            % Channel in channels list
+            {ok, Channel_pid};
 	error ->
-	    case dict:find(Channel_code, Channels_cache_dict) of
-		{ok, Cached_channel_pid} -> Result = Cached_channel_pid,
-					    {{ok, Result}, State};
-		error ->
-                    %% result is not in Channel_dict nor Channel_cache_dict
-                    case get_or_create_channel(Channel_code,
-                                               State,
-                                               Meta) of
-                        {{ok, New_channel_pid}, State2} ->
-                            State3 = State2#state{channels_cache=
-                                                      dict:store(Channel_code,
-                                                                 New_channel_pid,
-                                                                 Channels_cache_dict)},
-                            {{ok, New_channel_pid}, State3};
-                        {{error, permission_denied}, State2} ->
-                            {{error, permission_denied}, State2}
-                    end
-	    end
+            case pc_global:get_channel(Channel_code) of
+                undefined ->
+                    % Channel is not created before. Create Channel
+                    case Perm_module:has_permission(Perm_backend, create, Channel_code) of
+                        true -> pc_channel_sup:start_child(Channel_code);
+                        false -> {error, permission_denied}
+                    end;
+                Pid when is_pid(Pid) ->
+                    % Channel is already created.
+                    {ok, Pid}
+            end
     end.
 
-
-get_or_create_channel(Channel_code,
-                      #state{code=Code,
-                             permission_module=Permission_module,
-                             permission_state=Permission_state}=State,
-                     Meta)->
-    case pc_global:get_channel(Channel_code) of
-        undefined ->
-            case Permission_module:has_permission(can_create_channel,
-                                                  Code,
-                                                  Channel_code,
-                                                  Meta,
-                                                  Permission_state) of
-                {true, Permission_state2} ->
-                    Result = pc_channel_sup:start_child(Channel_code),
-                    State2 = State#state{permission_state=Permission_state2};
-                {false, Permission_state2} ->
-                    Result = {error, permission_denied},
-                    State2 = State#state{permission_state=Permission_state2}
-            end;
-        Pid when is_pid(Pid) ->
-            Result = {ok, Pid},
-            State2 = State
-    end,
-    {Result, State2}.

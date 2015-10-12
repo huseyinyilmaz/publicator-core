@@ -92,7 +92,6 @@ all() ->
      send_message_test_case,
      channel_seperation_test_case,
      receive_message_test_case,
-     eunit_static_auth_backend_test_case,
      eunit_utils_test_case
     ].
 
@@ -212,8 +211,6 @@ receive_message_test_case(_Config) ->
     true = is_equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock2, 2)),
     ok.
 
-eunit_static_auth_backend_test_case(_Config) ->
-    ok = eunit:test(static_auth_backend_tests).
 
 eunit_utils_test_case(_Config) ->
     ok = eunit:test(utils_tests).

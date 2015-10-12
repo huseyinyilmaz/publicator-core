@@ -28,25 +28,13 @@
 %% Starts a new producer
 %% @end
 %%--------------------------------------------------------------------
--spec start_child(Meta::message_meta()) -> {ok, Code::binary(), Pid::pid()}
-                                             | {error, permission_denied}.
+-spec start_child(Meta::message_meta()) -> {ok, Code::binary(), Pid::pid()}.
 start_child(Meta) ->
-    {Auth_backend, Auth_state} = pc_auth_backend:get_authentication_backend(),
     Code = pc_utils:generate_code(),
-    case Auth_backend:authenticate(Code, Meta, Auth_state) of
-        false ->
-            lager:info("Permission denied for code=~p", [Code]),
-            {error, permission_denied};
-        true ->
-            lager:info("Starting a new producer with code ~p, Auth_info ~p and Auth_state ~p~n",
-                       [Code, Meta, Auth_state]),
-            {Permission_module, Permission_state} =
-                pc_permission_backend:get_permission_backend(),
-            Args_to_append = [Code, Permission_module, Permission_state],
-            case supervisor:start_child(?SERVER, Args_to_append) of
-                {ok, Pid} -> {ok, Code, Pid};
-                {error, {already_exists, _Pid}} -> start_child(Meta)
-            end
+    Args_to_append = [Code, Meta],
+    case supervisor:start_child(?SERVER, Args_to_append) of
+        {ok, Pid} -> {ok, Code, Pid};
+        {error, {already_started, _Pid}} -> start_child(Meta)
     end.
 	     
 
@@ -87,7 +75,7 @@ init([]) ->
     Type = worker,
 
     Producer = {producer, {pc_producer, start_link, []},
-	    Restart, Shutdown, Type, [pc_producer]},
+                Restart, Shutdown, Type, [pc_producer]},
 
     {ok, {SupFlags, [Producer]}}.
 
