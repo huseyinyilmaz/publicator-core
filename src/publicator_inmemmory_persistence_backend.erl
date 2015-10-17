@@ -9,6 +9,7 @@
 -module(publicator_inmemmory_persistence_backend).
 
 -behaviour(gen_server).
+-behaviour(pc_persistence_backend).
 
 %% API
 -export([start_link/2]).
@@ -52,7 +53,7 @@ get_messages(Pid) ->
 
 -spec persist_message(pid(), #message{}) -> ok.
 persist_message(Pid, Message) ->
-    gen_server:cast(Pid, {persiste_message, Message}).
+    gen_server:cast(Pid, {persist_message, Message}).
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================

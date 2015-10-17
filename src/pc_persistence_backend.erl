@@ -22,7 +22,7 @@
 %% Persist given message
 %% @end
 %%--------------------------------------------------------------------
--callback persist_message(Message::#message{}) -> ok.
+-callback persist_message(Pid::pid(), Message::#message{}) -> ok.
 
 %%%===================================================================
 %%% API

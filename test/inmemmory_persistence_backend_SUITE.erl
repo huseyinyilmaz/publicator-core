@@ -10,6 +10,8 @@
 
 -compile(export_all).
 
+-include("../include/publicator_core.hrl").
+
 -include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
@@ -135,6 +137,25 @@ persist_message(_Config) ->
                      ]},
     pc_utils:set_env(publicator_core, persistence_backend, Configuration),
     {Module, Args} = pc_persistence_backend:get_backend(),
-    {ok, Pid} = Module:start_link(<<"channel_code">>, Args),
+    Channel_code = <<"channel_code">>,
+    {ok, Pid} = Module:start_link(Channel_code, Args),
     true = ctcheck:is_pid(Pid),
+    Msg = #message{
+       producer_code= <<"producer_code">>,
+       channel_code=Channel_code,
+       type=message,
+       data= <<"data">>,
+       meta=#{}
+      },
+    Msg2 = #message{
+       producer_code= <<"producer_code2">>,
+       channel_code=Channel_code,
+       type=message,
+       data= <<"data2">>,
+       meta=#{}
+      },
+    ok = Module:persist_message(Pid, Msg),
+    true = ctcheck:equal(Module:get_messages(Pid), [Msg]),
+    ok = Module:persist_message(Pid, Msg2),
+    true = ctcheck:equal(Module:get_messages(Pid), [Msg, Msg2]),
     ok.
