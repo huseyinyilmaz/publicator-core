@@ -2,18 +2,15 @@
 %%% @author Huseyin Yilmaz <huseyin@HuseyinsMacBookPro.local>
 %%% @copyright (C) 2015, Huseyin Yilmaz
 %%% @doc
-%%%
+%%% Tests for in memmory persistence backend.
 %%% @end
-%%% Created : 11 Oct 2015 by Huseyin Yilmaz <huseyin@HuseyinsMacBookPro.local>
+%%% Created : 16 Oct 2015 by Huseyin Yilmaz <huseyin@Huseyins-air.home>
 %%%-------------------------------------------------------------------
--module(static_permission_backend_SUITE).
+-module(inmemmory_persistence_backend_SUITE).
 
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
--include("../include/publicator_core.hrl").
-
--define(META, #{}).
 
 %%--------------------------------------------------------------------
 %% @spec suite() -> Info
@@ -110,9 +107,7 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [get_backend_test_case,
-     valid_permission_test_case,
-     invalid_permission_test_case,
-     insufficent_permission_test_case].
+     persist_message].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->
@@ -124,68 +119,22 @@ all() ->
 %% @end
 %%--------------------------------------------------------------------
 get_backend_test_case(_Config) ->
-    % Allow all permissions.
-    Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, all},
-                       {extra_data, []},
-                       {channel_code, all},
-                       {publish, true},
-                       {subscribe, true},
-                       {create, true},
-                       {listen_events, true}]]},
-    pc_utils:set_env(publicator_core, permission_backend, Configuration),
-    % initialize backend
-    {Module, Args} = pc_permission_backend:get_backend(),
-    Configuration = {Module, Args},
+    Configuration = {publicator_inmemmory_persistence_backend,
+                     [
+                      [{channel_code, all}, {message_count, 20}]
+                     ]},
+    pc_utils:set_env(publicator_core, persistence_backend, Configuration),
+    {Module, Args} = pc_persistence_backend:get_backend(),
+    true = ctcheck:equal(Configuration, {Module, Args}),
     ok.
 
-valid_permission_test_case(_Config) ->
-    % Allow all permissions.
-    Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, all},
-                       {extra_data, []},
-                       {channel_code, all},
-                       {publish, true},
-                       {subscribe, true},
-                       {create, true},
-                       {listen_events, true}]]},
-    pc_utils:set_env(publicator_core, permission_backend, Configuration),
-    % initialize backend
-    {Module, Args} = pc_permission_backend:get_backend(),
-    {ok, Pid} = Module:start_link(<<"Code">>, Args, ?META),
-    true = Module:has_permission(Pid, publish, <<"channel1">>),
-    ok.
-
-invalid_permission_test_case(_Config) ->
-    % add unsupported consumer code.
-    Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, <<"some other code">>},
-                       {extra_data, []},
-                       {channel_code, all},
-                       {publish, true},
-                       {subscribe, true},
-                       {create, true},
-                       {listen_events, true}]]},
-    pc_utils:set_env(publicator_core, permission_backend, Configuration),
-    % initialize backend
-    {Module, Args} = pc_permission_backend:get_backend(),
-    {ok, Pid} = Module:start_link(<<"code">>, Args, ?META),
-    false = Module:has_permission(Pid, publish, <<"channel1">>),
-    ok.
-
-insufficent_permission_test_case(_Config) ->
-    % do not add permission
-    Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, all},
-                       {extra_data, []},
-                       {channel_code, all},
-                       {publish, false},
-                       {subscribe, true},
-                       {create, true},
-                       {listen_events, true}]]},
-    pc_utils:set_env(publicator_core, permission_backend, Configuration),
-    % initialize backend
-    {Module, Args} = pc_permission_backend:get_backend(),
-    {ok, Pid} = Module:start_link(<<"code">>, Args, ?META),
-    true = ctcheck:equal(Module:has_permission(Pid, publish, <<"channel1">>), false),
+persist_message(_Config) ->
+    Configuration = {publicator_inmemmory_persistence_backend,
+                     [
+                      [{channel_code, all}, {message_count, 20}]
+                     ]},
+    pc_utils:set_env(publicator_core, persistence_backend, Configuration),
+    {Module, Args} = pc_persistence_backend:get_backend(),
+    {ok, Pid} = Module:start_link(<<"channel_code">>, Args),
+    true = ctcheck:is_pid(Pid),
     ok.

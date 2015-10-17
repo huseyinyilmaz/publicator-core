@@ -72,10 +72,9 @@ ensure_started(App) ->
 get_channel_config(Channel_code)->
     Channel_config_list = get_env(server, channels, ?DEFAULT_CHANNELS),
     Config = choose_channel_config(Channel_code, Channel_config_list),
-    Config_cache_size = proplists:get_value(cache_size, Config, ?DEFAULT_CACHE_SIZE),
     Config_timeout = proplists:get_value(timeout, Config, ?DEFAULT_TIMEOUT),
     lager:debug("Choosen configuration for channel ~p is ~p", [Channel_code, Config]),
-    {Config_cache_size, Config_timeout}.
+    {Config_timeout}.
 
 
 -spec make_message(code(), code(), message_type(), binary(), message_meta()) -> #message{}.

@@ -11,7 +11,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/3]).
+-export([start_link/2]).
 -export([publish/2]).
 -export([get_producers/1]).
 -export([add_producer/3]).
@@ -26,9 +26,8 @@
 
 -record(state, {code :: binary(),
 		producer_table :: ets:tid(),
-                cache_size :: number(),
-                current_cache_size :: number(),
-                cache :: queue:queue(binary()),
+                persistence_backend :: pid(),
+                persistence_module :: atom(),
                 timeout :: number()|infinity}).
 
 -include("../include/publicator_core.hrl").
@@ -43,8 +42,8 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
-start_link(Code, Cache_size, Timeout) ->
-    gen_server:start_link(?MODULE, [Code, Cache_size, Timeout], []).
+start_link(Code, Timeout) ->
+    gen_server:start_link(?MODULE, [Code, Timeout], []).
 
 
 publish(Channel_pid, Message) ->
@@ -80,15 +79,13 @@ remove_producer(Channel_pid, Producer_code) ->
 %% @end
 %%--------------------------------------------------------------------
 %% if a channel with same name is already registered stop this server 
-init([Code, Cache_size, Timeout]) ->
+init([Code, Timeout]) ->
     Self = self(),
     case pc_global:get_or_register_channel(Code) of
 	Self ->
+            gen_server:cast(self(), initialize_persistence_backend),
             {ok, #state{code=Code,
 			producer_table=ets:new(producer_table,[set, public]),
-                        cache_size=Cache_size,
-                        current_cache_size=0,
-                        cache=queue:new(),
                         timeout=Timeout
                        }};
 	Pid when is_pid(Pid) -> 
@@ -113,10 +110,6 @@ handle_call({add_producer, Producer_pid, Producer_code}, _From,
 	    #state{producer_table=Producer_table,
 		   code=Channel_code,
                    timeout=Timeout}=State)->
-    %% Send cache to newly subscribed producer
-    %% XXX publish cached messages.
-
-    %% gen_server:cast(self(), {send_cache_to_producer_pid, Producer_pid}),
     %% Add  Producer to new channel
     ets:insert(Producer_table,{Producer_code, Producer_pid}),
     lager:info("Producer ~p was subscribed to channel ~p",[Producer_code, Channel_code]),
@@ -187,25 +180,26 @@ handle_call(Request, _From, #state{timeout=Timeout}=State) ->
 %%--------------------------------------------------------------------
 handle_cast({publish, Message},
 	    #state{producer_table=Producer_table,
-                   cache_size=Cache_size,
-                   current_cache_size=Current_cache_size,
-                   cache=Cache,
+                   persistence_backend=Persistence_backend,
+                   persistence_module=Persistence_module,
                    timeout=Timeout}=State)->
     %% todo run this on another temprary process
     ets:foldl(fun({_Producer_Code, Producer_pid}, Acc) ->
 		      pc_producer:push_message(Producer_pid, Message),
 		      Acc
 	      end, ok, Producer_table),
-    if
-        Cache_size =< Current_cache_size ->
-            Cache1 = queue:drop(queue:in(Message,Cache)),
-            Current_cache_size1 = Current_cache_size;
-        Cache_size > Current_cache_size ->
-            Cache1 = queue:in(Message,Cache),
-            Current_cache_size1 = Current_cache_size + 1
-    end,
-    {noreply, State#state{current_cache_size=Current_cache_size1,
-                          cache=Cache1}, Timeout};
+    Persistence_module:persist_message(Persistence_backend, Message),
+    {noreply, State, Timeout};
+
+% initialize persistence backend after initialization.
+handle_cast(initialize_persistence_backend, #state{timeout=Timeout,
+                                                   code=Code}=State) ->
+    {Module, Args} = pc_persistence_backend:get_backend(),
+    {ok, Pid} = Module:start_link(Code, Args),
+    {noreply, State#state{persistence_module=Module,
+                          persistence_backend=Pid}, Timeout};
+
+
 
 
 handle_cast(Msg, #state{timeout=Timeout}=State) ->

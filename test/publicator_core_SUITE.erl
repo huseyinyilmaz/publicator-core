@@ -218,8 +218,8 @@ receive_message_test_case(_Config) ->
     timer:sleep(?DELAY),
     publicator_core:publish(Msg2),
     % make sure listeners got corect_messages
-    true = is_equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock1, 2)),
-    true = is_equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock2, 2)),
+    true = ctcheck:equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock1, 2)),
+    true = ctcheck:equal({ok, [Msg2, Msg1]}, process_mock:get_messages(Mock2, 2)),
     ok.
 
 permission_integration_test_case(_Config) ->
@@ -231,15 +231,8 @@ permission_integration_test_case(_Config) ->
     Msg1 = publicator_core:make_message(Producer_code1, Channel_code, ?MESSAGE1, ?META),
     % Subscribe all producers to all channels
     ok = publicator_core:subscribe(Producer_code1, Channel_code, ?META),
-    true = is_equal({error,permission_denied}, publicator_core:publish(Msg1)),
+    true = ctcheck:equal({error,permission_denied}, publicator_core:publish(Msg1)),
     ok.
 
 eunit_utils_test_case(_Config) ->
     ok = eunit:test(utils_tests).
-
-%% UTILITY FUNCTIONS
-%%%%%%%%%%%%%%%%%%%%
-is_equal(First, First) -> true;
-is_equal(First, Second) ->
-    ct:pal(error, "Assertion Failed:~nvalue=~p~nexpected=~p", [First,Second]),
-    false.
