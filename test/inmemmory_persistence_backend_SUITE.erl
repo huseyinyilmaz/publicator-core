@@ -14,6 +14,26 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-define(META, #{}).
+-define(DELAY, 500).
+
+-define(PERSISTENCE_CONFIG,
+        {publicator_inmemmory_persistence_backend, []}).
+
+-define(LIMITED_PERSISTENCE_CONFIG,
+        {publicator_inmemmory_persistence_backend,
+         [[{channel_code, all}, {message_count, 2}]]}).
+
+-define(PERMISSION_CONFIG,
+        {publicator_static_permission_backend,
+         [[{consumer_code, all},
+           {extra_data, []},
+           {channel_code, all},
+           {publish, true},
+           {subscribe, true},
+           {create, true},
+           {listen_events, true}]]}).
+
 %%--------------------------------------------------------------------
 %% @spec suite() -> Info
 %% Info = [tuple()]
@@ -22,94 +42,31 @@
 suite() ->
     [{timetrap,{seconds,30}}].
 
-%%--------------------------------------------------------------------
-%% @spec init_per_suite(Config0) ->
-%%     Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% @end
-%%--------------------------------------------------------------------
-init_per_suite(Config) ->
-    Config.
+init_per_testcase(persist_message_limit, Config) ->
+    lager:start(),
+    pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
+    pc_utils:set_env(publicator_core, persistence_backend, ?LIMITED_PERSISTENCE_CONFIG),
+    ok = publicator_core:start(),
+    Config;
 
-%%--------------------------------------------------------------------
-%% @spec end_per_suite(Config0) -> term() | {save_config,Config1}
-%% Config0 = Config1 = [tuple()]
-%% @end
-%%--------------------------------------------------------------------
-end_per_suite(_Config) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% @spec init_per_group(GroupName, Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
-%% GroupName = atom()
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% @end
-%%--------------------------------------------------------------------
-init_per_group(_GroupName, Config) ->
-    Config.
-
-%%--------------------------------------------------------------------
-%% @spec end_per_group(GroupName, Config0) ->
-%%               term() | {save_config,Config1}
-%% GroupName = atom()
-%% Config0 = Config1 = [tuple()]
-%% @end
-%%--------------------------------------------------------------------
-end_per_group(_GroupName, _Config) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% @spec init_per_testcase(TestCase, Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
-%% TestCase = atom()
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% @end
-%%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
+    lager:start(),
+    pc_utils:set_env(publicator_core, permission_backend, ?PERMISSION_CONFIG),
+    pc_utils:set_env(publicator_core, persistence_backend, ?PERSISTENCE_CONFIG),
+    ok = publicator_core:start(),
     Config.
 
-%%--------------------------------------------------------------------
-%% @spec end_per_testcase(TestCase, Config0) ->
-%%               term() | {save_config,Config1} | {fail,Reason}
-%% TestCase = atom()
-%% Config0 = Config1 = [tuple()]
-%% Reason = term()
-%% @end
-%%--------------------------------------------------------------------
 end_per_testcase(_TestCase, _Config) ->
+%%    lager:info("Cleanup server"),
+    ok = publicator_core:stop(),
+    application:stop(lager),
+    application:stop(goldrush),
     ok.
 
-%%--------------------------------------------------------------------
-%% @spec groups() -> [Group]
-%% Group = {GroupName,Properties,GroupsAndTestCases}
-%% GroupName = atom()
-%% Properties = [parallel | sequence | Shuffle | {RepeatType,N}]
-%% GroupsAndTestCases = [Group | {group,GroupName} | TestCase]
-%% TestCase = atom()
-%% Shuffle = shuffle | {shuffle,{integer(),integer(),integer()}}
-%% RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |
-%%              repeat_until_any_ok | repeat_until_any_fail
-%% N = integer() | forever
-%% @end
-%%--------------------------------------------------------------------
-groups() ->
-    [].
-
-%%--------------------------------------------------------------------
-%% @spec all() -> GroupsAndTestCases | {skip,Reason}
-%% GroupsAndTestCases = [{group,GroupName} | TestCase]
-%% GroupName = atom()
-%% TestCase = atom()
-%% Reason = term()
-%% @end
-%%--------------------------------------------------------------------
 all() ->
     [get_backend_test_case,
-     persist_message].
+     persist_message,
+     persist_message_limit].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->
@@ -127,20 +84,19 @@ get_backend_test_case(_Config) ->
                      ]},
     pc_utils:set_env(publicator_core, persistence_backend, Configuration),
     {Module, Args} = pc_persistence_backend:get_backend(),
-    true = ctcheck:equal(Configuration, {Module, Args}),
+    {Config_module, Config_args} = Configuration,
+    true = ctcheck:equal({Module, Args},
+                        {Config_module, Config_args ++ [?DEFAULT_PERSISTENCE_ARG]}),
     ok.
 
 persist_message(_Config) ->
-    Configuration = {publicator_inmemmory_persistence_backend,
-                     [
-                      [{channel_code, all}, {message_count, 20}]
-                     ]},
-    pc_utils:set_env(publicator_core, persistence_backend, Configuration),
     {Module, Args} = pc_persistence_backend:get_backend(),
     Channel_code = <<"channel_code">>,
     {ok, Pid} = Module:start_link(Channel_code, Args),
+    {ok, Producer_code, Producer_pid} = publicator_core:create_producer(?META),
+    publicator_core:subscribe(Producer_code, Channel_code, ?META),
     true = ctcheck:is_pid(Pid),
-    Msg = #message{
+    Msg1 = #message{
        producer_code= <<"producer_code">>,
        channel_code=Channel_code,
        type=message,
@@ -154,8 +110,55 @@ persist_message(_Config) ->
        data= <<"data2">>,
        meta=#{}
       },
-    ok = Module:persist_message(Pid, Msg),
-    true = ctcheck:equal(Module:get_messages(Pid), [Msg]),
+    ok = Module:persist_message(Pid, Msg1),
+    ok = Module:get_messages(Pid, Producer_pid),
+    timer:sleep(?DELAY),
+    true = ctcheck:equal(publicator_core:get_messages(Producer_code), {ok, [Msg1]}),
     ok = Module:persist_message(Pid, Msg2),
-    true = ctcheck:equal(Module:get_messages(Pid), [Msg, Msg2]),
+    ok = Module:get_messages(Pid, Producer_pid),
+    timer:sleep(?DELAY),
+    true = ctcheck:equal(publicator_core:get_messages(Producer_code), {ok, [Msg2, Msg1]}),
+    ok.
+
+
+persist_message_limit(_Config) ->
+    {Module, Args} = pc_persistence_backend:get_backend(),
+    Channel_code = <<"channel_code">>,
+    {ok, Pid} = Module:start_link(Channel_code, Args),
+    {ok, Producer_code, Producer_pid} = publicator_core:create_producer(?META),
+    publicator_core:subscribe(Producer_code, Channel_code, ?META),
+    true = ctcheck:is_pid(Pid),
+    Msg1 = #message{
+       producer_code= <<"producer_code">>,
+       channel_code=Channel_code,
+       type=message,
+       data= <<"data">>,
+       meta=#{}
+      },
+    Msg2 = #message{
+       producer_code= <<"producer_code2">>,
+       channel_code=Channel_code,
+       type=message,
+       data= <<"data2">>,
+       meta=#{}
+      },
+    Msg3 = #message{
+       producer_code= <<"producer_code3">>,
+       channel_code=Channel_code,
+       type=message,
+       data= <<"data3">>,
+       meta=#{}
+      },
+    ok = Module:persist_message(Pid, Msg1),
+    ok = Module:get_messages(Pid, Producer_pid),
+    timer:sleep(?DELAY),
+    true = ctcheck:equal(publicator_core:get_messages(Producer_code), {ok, [Msg1]}),
+    ok = Module:persist_message(Pid, Msg2),
+    ok = Module:get_messages(Pid, Producer_pid),
+    timer:sleep(?DELAY),
+    true = ctcheck:equal(publicator_core:get_messages(Producer_code), {ok, [Msg2, Msg1]}),
+    ok = Module:persist_message(Pid, Msg3),
+    ok = Module:get_messages(Pid, Producer_pid),
+    timer:sleep(?DELAY),
+    true = ctcheck:equal(publicator_core:get_messages(Producer_code), {ok, [Msg3, Msg2]}),
     ok.

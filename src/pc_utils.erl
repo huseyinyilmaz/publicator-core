@@ -12,6 +12,7 @@
 -export([generate_code/0, get_env/3, set_env/3, ensure_started/1]).
 -export([get_channel_config/1]).
 -export([make_message/5]).
+-export([get_by_attribute/3]).
 
 -include("../include/publicator_core.hrl").
 
@@ -86,7 +87,15 @@ make_message(Producer_code, Channel_code, Type, Data, Meta) ->
            data=Data,
            meta=Meta}.
 
-
+-spec get_by_attribute(atom(), binary(), []) -> [].
+get_by_attribute(Attr, Code, [Arg| Args]) ->
+    case proplists:get_value(Attr, Arg, all) of
+        Code -> Arg;
+        all -> Arg;
+        _ ->
+            get_by_attribute(Attr, Code, Args)
+    end.
+    
 
 %%%===================================================================
 %%% Internal functions

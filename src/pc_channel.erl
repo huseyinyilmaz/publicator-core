@@ -109,6 +109,8 @@ init([Code, Timeout]) ->
 handle_call({add_producer, Producer_pid, Producer_code}, _From,
 	    #state{producer_table=Producer_table,
 		   code=Channel_code,
+                   persistence_backend=Persistence_backend,
+                   persistence_module=Persistence_module,
                    timeout=Timeout}=State)->
     %% Add  Producer to new channel
     ets:insert(Producer_table,{Producer_code, Producer_pid}),
@@ -129,7 +131,8 @@ handle_call({add_producer, Producer_pid, Producer_code}, _From,
 				Acc
 			end
 		end, ok, Handler_list),
-
+    %% get_messages 
+    ok = Persistence_module:get_messages(Persistence_backend, Producer_pid),
     Reply = ok,
     
     {reply, Reply, State, Timeout};

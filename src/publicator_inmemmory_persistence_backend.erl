@@ -13,7 +13,7 @@
 
 %% API
 -export([start_link/2]).
--export([get_messages/1]).
+-export([get_messages/2]).
 -export([persist_message/2]).
 
 %% gen_server callbacks
@@ -21,6 +21,8 @@
          terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
+
+
 -include("../include/publicator_core.hrl").
 
 -record(state, {
@@ -46,10 +48,10 @@ start_link(Code, Args) ->
     gen_server:start_link(?MODULE, [Code, Args], []).
 
 
--spec get_messages(pid()) -> [#message{}].
-get_messages(Pid) ->
-    {ok, Resp} = gen_server:call(Pid, get_messages),
-    Resp.
+-spec get_messages(pid(), pid()) -> ok.
+get_messages(Pid, Producer_pid) ->
+    gen_server:cast(Pid, {get_messages, Producer_pid}).
+
 
 -spec persist_message(pid(), #message{}) -> ok.
 persist_message(Pid, Message) ->
@@ -69,10 +71,11 @@ persist_message(Pid, Message) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Code, _Args]) ->
+init([Code, Args]) ->
+    Arg = pc_utils:get_by_attribute(channel_code, Code, Args),
     {ok, #state{
             code=Code,
-            cache_size=10,
+            cache_size=proplists:get_value(message_count, Arg, ?DEFAULT_MESSAGE_COUNT),
             current_cache_size=0,
             cache=queue:new()}}.
 
@@ -90,11 +93,6 @@ init([Code, _Args]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_messages, _From, #state{cache=Message_cache}=State) ->
-    lager:debug("#######################"),
-    lager:debug("Get Cached Messages=~p", [queue:to_list(Message_cache)]),
-    {reply, {ok, queue:to_list(Message_cache)}, State};
-
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -109,6 +107,16 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_cast({get_messages, Producer_pid}, #state{cache=Message_cache}=State) ->
+    lager:debug("#######################"),
+    lager:debug("Get Cached Messages=~p", [queue:to_list(Message_cache)]),
+    ok = lists:foldr(fun(Msg, ok)->
+                             pc_producer:push_message(Producer_pid, Msg)
+                     end,
+                     ok,
+                     queue:to_list(Message_cache)),
+    {noreply, State};
+
 handle_cast({persist_message, Msg},
             #state{cache_size=Cache_size,
                    current_cache_size=Current_cache_size,
