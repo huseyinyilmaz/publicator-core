@@ -91,6 +91,9 @@ init([Code, Args, _Meta]) ->
                              end
                      end,
                      Filters),
+
+    lager:info("Starting ~p. code=~p, args=~p, filters=~p",
+               [?MODULE, Code, Args, Filters2]),
     % TODO add meta suport
     {ok, #state{code=Code, args=Args, filters=Filters2}}.
 
@@ -110,7 +113,6 @@ init([Code, Args, _Meta]) ->
 %%--------------------------------------------------------------------
 handle_call({has_permission, Perm, Channel_code}, _From,
             #state{filters=Filters}=State) ->
-    lager:info('XXXXXXXXXXXXXX'),
     Resp = lists:any(fun(Filter) ->
                              can_pass_filter(Filter, Perm)
                      end,

@@ -36,7 +36,9 @@
 %%--------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
     %% Start main supervisor
-    lager:debug("#######################"),
+    lager:info("Starting publicator_core"),
+    lager:info("publicator_core settings:"),
+    lager:info("~p", [application:get_all_env(publicator_core)]),
 
     case publicator_core_sup:start_link() of
 
