@@ -21,7 +21,7 @@
 -define(SERVER, ?MODULE).
 -include("../include/publicator_core.hrl").
 
--record(filter, {consumer_code::binary()|all,
+-record(filter, {producer_code::binary()|all,
                  meta::list(),
                  channel_code::binary()|all,
                  permissions::#permissions{}}).
@@ -71,7 +71,7 @@ has_permission(Pid, Perm, Channel_code) ->
 %% @end
 %%--------------------------------------------------------------------
 init([Code, Args, _Meta]) ->
-    Filters = [#filter{consumer_code=proplists:get_value(consumer_code, Arg, all),
+    Filters = [#filter{producer_code=proplists:get_value(producer_code, Arg, all),
                        channel_code=proplists:get_value(channel_code, Arg, all),
                        meta=proplists:get_value(meta, Arg, []),
                        permissions=#permissions{
@@ -83,7 +83,7 @@ init([Code, Args, _Meta]) ->
 
     Filters2 = lists:filter(
                      % keep only filters that is relative to current Consumer
-                     fun(#filter{consumer_code=Filter_code}) ->
+                     fun(#filter{producer_code=Filter_code}) ->
                              case Filter_code of
                                  all -> true;
                                  Code -> true;
@@ -110,6 +110,7 @@ init([Code, Args, _Meta]) ->
 %%--------------------------------------------------------------------
 handle_call({has_permission, Perm, Channel_code}, _From,
             #state{filters=Filters}=State) ->
+    lager:info('XXXXXXXXXXXXXX'),
     Resp = lists:any(fun(Filter) ->
                              can_pass_filter(Filter, Perm)
                      end,

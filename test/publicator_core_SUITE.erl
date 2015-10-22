@@ -23,7 +23,7 @@
 
 -define(PERMISSION_CONFIG,
         {publicator_static_permission_backend,
-         [[{consumer_code, all},
+         [[{producer_code, all},
            {extra_data, []},
            {channel_code, all},
            {publish, true},
@@ -33,7 +33,7 @@
 
 -define(CANNOT_PUBLISH_PERMISSION_CONFIG,
         {publicator_static_permission_backend,
-         [[{consumer_code, all},
+         [[{producer_code, all},
            {extra_data, []},
            {channel_code, all},
            {publish, false},
@@ -97,7 +97,7 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-    [uninitialized_consumer_test_case,
+    [uninitialized_producer_test_case,
      subscribtion_test_case,
      send_message_test_case,
      channel_seperation_test_case,
@@ -106,8 +106,8 @@ all() ->
      eunit_utils_test_case
     ].
 
-uninitialized_consumer_test_case(_Config) ->
-    Consumer_code = <<"no-consumer">>,
+uninitialized_producer_test_case(_Config) ->
+    Consumer_code = <<"no-producer">>,
     Channel_code = ?CHANNEL1,
     Msg = publicator_core:make_message(Consumer_code, Channel_code, ?MESSAGE1, ?META),
     %% test uninitialized sesssions

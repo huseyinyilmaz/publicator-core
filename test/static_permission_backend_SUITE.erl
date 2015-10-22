@@ -126,7 +126,7 @@ all() ->
 get_backend_test_case(_Config) ->
     % Allow all permissions.
     Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, all},
+                     [[{producer_code, all},
                        {extra_data, []},
                        {channel_code, all},
                        {publish, true},
@@ -142,7 +142,7 @@ get_backend_test_case(_Config) ->
 valid_permission_test_case(_Config) ->
     % Allow all permissions.
     Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, all},
+                     [[{producer_code, all},
                        {extra_data, []},
                        {channel_code, all},
                        {publish, true},
@@ -157,9 +157,9 @@ valid_permission_test_case(_Config) ->
     ok.
 
 invalid_permission_test_case(_Config) ->
-    % add unsupported consumer code.
+    % add unsupported producer code.
     Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, <<"some other code">>},
+                     [[{producer_code, <<"some other code">>},
                        {extra_data, []},
                        {channel_code, all},
                        {publish, true},
@@ -176,7 +176,7 @@ invalid_permission_test_case(_Config) ->
 insufficent_permission_test_case(_Config) ->
     % do not add permission
     Configuration = {publicator_static_permission_backend,
-                     [[{consumer_code, all},
+                     [[{producer_code, all},
                        {extra_data, []},
                        {channel_code, all},
                        {publish, false},

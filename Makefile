@@ -13,7 +13,7 @@ APPS =   kernel stdlib crypto webtool mnesia eunit tools os_mon runtime_tools xm
 # compile
 all: compile
 
-get-rebar:
+$(REBAR):
 	rm -f rebar
 	wget $(REBAR_URL)
 	chmod a+x rebar

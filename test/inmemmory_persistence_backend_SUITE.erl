@@ -26,7 +26,7 @@
 
 -define(PERMISSION_CONFIG,
         {publicator_static_permission_backend,
-         [[{consumer_code, all},
+         [[{producer_code, all},
            {extra_data, []},
            {channel_code, all},
            {publish, true},
