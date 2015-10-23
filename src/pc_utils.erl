@@ -79,7 +79,7 @@ get_channel_config(Channel_code)->
 
 
 -spec make_message(code(), code(), message_type(), binary(), message_meta()) -> #message{}.
-make_message(Producer_code, Channel_code, Type, Data, Meta) ->
+make_message(Producer_code, Channel_code, Type, Data, Meta) when is_atom(Type)->
         #message{
            producer_code=Producer_code,
            channel_code=Channel_code,
@@ -111,3 +111,4 @@ choose_channel_config(Channel_code,[Config|Channel_config_list]) ->
             choose_channel_config(Channel_code, Channel_config_list)
     end.
             
+

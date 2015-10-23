@@ -110,11 +110,21 @@ handle_call(_Request, _From, State) ->
 handle_cast({get_messages, Producer_pid}, #state{cache=Message_cache}=State) ->
     lager:debug("#######################"),
     lager:debug("Get Cached Messages=~p", [queue:to_list(Message_cache)]),
-    ok = lists:foldr(fun(Msg, ok)->
-                             pc_producer:push_message(Producer_pid, Msg)
+    ok = lists:foldr(fun(#message{meta=Meta}=Msg, ok)->
+                             pc_producer:push_message(
+                               Producer_pid,
+                               Msg#message{meta=Meta#{<<"from_cache">> => true}})
                      end,
                      ok,
                      queue:to_list(Message_cache)),
+    {noreply, State};
+
+handle_cast({persist_message,
+             #message{meta=#{<<"persist">> := false}}},
+            State) ->
+    lager:debug("==========="),
+    lager:debug("persist=false"),
+
     {noreply, State};
 
 handle_cast({persist_message, Msg},
@@ -123,6 +133,7 @@ handle_cast({persist_message, Msg},
                    cache=Cache}=State) ->
     lager:debug("#######################"),
     lager:debug("Persist_message Msg=~p, State=~p", [Msg, State]),
+
     if
         Cache_size =< Current_cache_size ->
             Cache1 = queue:drop(queue:in(Msg, Cache)),
